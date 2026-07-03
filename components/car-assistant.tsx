@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import AssistantMessage from "@/components/assistant-message";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -75,7 +76,7 @@ export default function CarAssistant({
 
       <div
         ref={scrollRef}
-        className="max-h-[420px] space-y-3 overflow-y-auto px-4 py-4"
+        className="max-h-[420px] space-y-3 overflow-y-auto overflow-x-hidden px-4 py-4"
       >
         {messages.length === 0 && (
           <div className="text-[0.9rem] text-n2muted">
@@ -92,13 +93,17 @@ export default function CarAssistant({
             }
           >
             <div
-              className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-[0.9rem] leading-relaxed ${
+              className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-[0.9rem] leading-relaxed [overflow-wrap:anywhere] ${
                 m.role === "user"
-                  ? "bg-clay text-white"
+                  ? "whitespace-pre-wrap bg-clay text-white"
                   : "border border-outline bg-cream text-ink"
               }`}
             >
-              {m.content}
+              {m.role === "assistant" ? (
+                <AssistantMessage text={m.content} />
+              ) : (
+                m.content
+              )}
             </div>
           </div>
         ))}

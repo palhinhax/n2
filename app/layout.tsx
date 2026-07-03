@@ -4,6 +4,7 @@ import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/ui/toaster";
 import PwaRegister from "@/components/pwa-register";
+import FloatingAssistant from "@/components/floating-assistant";
 import { SITE_URL, SITE_NAME, SITE_TAGLINE, SITE_DESCRIPTION } from "@/lib/seo";
 
 const geistSans = localFont({
@@ -82,6 +83,7 @@ export default function RootLayout({
         <Providers>
           {children}
           <Toaster />
+          <FloatingAssistant />
           <PwaRegister />
         </Providers>
       </body>

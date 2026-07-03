@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   ASSISTANT_SYSTEM,
+  ASSISTANT_SYSTEM_SITE,
   ASSISTANT_TOOLS,
   buildCarContext,
   runTool,
@@ -45,10 +46,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Sem mensagem" }, { status: 400 });
   }
 
-  // Contexto do carro atual (opcional).
-  const messages: any[] = [{ role: "system", content: ASSISTANT_SYSTEM }];
+  // Modo carro (com contexto do anúncio) vs. modo site (assistente geral).
   const ctx = body.context;
-  if (ctx?.kind && ctx?.id) {
+  const hasCar = ctx?.kind && ctx?.id;
+  const messages: any[] = [
+    {
+      role: "system",
+      content: hasCar ? ASSISTANT_SYSTEM : ASSISTANT_SYSTEM_SITE,
+    },
+  ];
+  if (hasCar) {
     try {
       const carCtx = await buildCarContext(ctx.kind, ctx.id);
       if (carCtx) {
