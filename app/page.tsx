@@ -78,8 +78,17 @@ export default async function Home() {
       <SiteHeader />
 
       {/* hero */}
-      <section className="border-b border-outline bg-gradient-to-b from-[#FFFDF7] via-[#FBF3E0] to-[#F7EAD0]">
-        <div className="mx-auto w-[min(1240px,94%)] py-12 text-center">
+      <section className="relative overflow-hidden border-b border-outline bg-gradient-to-b from-[#FFFDF7] via-[#FBF3E0] to-[#F7EAD0]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/brand/promo.png"
+          alt=""
+          aria-hidden
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+        />
+        {/* véu quente para o texto ficar legível por cima da imagem */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#FFFDF7]/85 via-[#FBF3E0]/80 to-[#F7EAD0]/90" />
+        <div className="relative mx-auto w-[min(1240px,94%)] py-12 text-center">
           <h1 className="font-head text-[clamp(1.9rem,4vw,3rem)] font-extrabold text-ink">
             O portal de carros à tua maneira
           </h1>

@@ -7,6 +7,16 @@ const BASE_HEADERS: Record<string, string> = {
   "Accept-Language": "pt-PT,pt;q=0.9,en;q=0.8",
 };
 
+/** Referer/Origin do próprio site — APIs internas (OLX, etc.) exigem-nos. */
+function originHeaders(url: string): Record<string, string> {
+  try {
+    const u = new URL(url);
+    return { Referer: `${u.origin}/`, Origin: u.origin };
+  } catch {
+    return {};
+  }
+}
+
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** delay base entre pedidos (+ jitter) — sê educado com os sites */
@@ -24,7 +34,7 @@ async function fetchRaw(
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       const res = await fetch(url, {
-        headers: { ...BASE_HEADERS, ...extraHeaders },
+        headers: { ...BASE_HEADERS, ...originHeaders(url), ...extraHeaders },
         redirect: "follow",
         signal: AbortSignal.timeout(30_000),
       });

@@ -103,12 +103,14 @@ export async function runScrape(opts: RunOptions = {}): Promise<RunSummary> {
 
   for (const adapter of adapters) {
     const key = sourceKey(adapter.name);
-    const state: SourceState = (await getState<SourceState>(key)) ?? {
-      cursor: undefined,
-      finished: false,
-      pagesDone: 0,
-      created: 0,
-      updated: 0,
+    // merge com defaults (um estado guardado como {} não deve dar NaN)
+    const loaded = (await getState<Partial<SourceState>>(key)) ?? {};
+    const state: SourceState = {
+      cursor: loaded.cursor,
+      finished: loaded.finished ?? false,
+      pagesDone: loaded.pagesDone ?? 0,
+      created: loaded.created ?? 0,
+      updated: loaded.updated ?? 0,
     };
 
     while (

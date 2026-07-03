@@ -65,14 +65,25 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <Card className="w-full max-w-md">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/brand/promo.png"
+        alt=""
+        aria-hidden
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+      />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#2A211A]/35 via-transparent to-[#2A211A]/45" />
+      <Card className="relative z-10 w-full max-w-md rounded-2xl border border-[#E7D7B6] bg-[#FCF7EC]/90 shadow-warmlg backdrop-blur-md">
         <CardHeader className="space-y-1">
+          <div className="text-center font-head text-[1.5rem] font-extrabold tracking-tight text-ink">
+            NACIONAL <span className="text-clay">2</span>
+          </div>
           <CardTitle className="text-center text-2xl font-bold">
-            Sign in
+            Bem-vindo de volta
           </CardTitle>
           <CardDescription className="text-center">
-            Enter your credentials to access your account
+            Entra na tua conta para gerir os teus carros
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
@@ -116,15 +127,15 @@ export default function LoginPage() {
           <CardFooter className="flex flex-col space-y-4">
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading && <Spinner size="sm" className="mr-2" />}
-              Sign in
+              Entrar
             </Button>
             <p className="text-center text-sm text-muted-foreground">
-              Don&apos;t have an account?{" "}
+              Ainda não tens conta?{" "}
               <Link
                 href="/auth/register"
                 className="text-primary hover:underline"
               >
-                Sign up
+                Cria já — é grátis
               </Link>
             </p>
           </CardFooter>

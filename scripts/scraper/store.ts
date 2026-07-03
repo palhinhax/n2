@@ -64,7 +64,8 @@ export async function getState<T>(id: string): Promise<T | null> {
 }
 
 export async function setState(id: string, data: unknown): Promise<void> {
-  const json = JSON.stringify(data ?? {});
+  // preserva null (reset limpa o estado); só undefined vira {}
+  const json = JSON.stringify(data === undefined ? {} : data);
   await prisma.scrapeState.upsert({
     where: { id },
     update: { data: json },
