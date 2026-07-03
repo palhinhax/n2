@@ -255,6 +255,18 @@ model ScrapedListing {
   @@index([active, isDuplicate])
 }
 
+// Contador de uso diário das funcionalidades de IA (chat, avaliação) por
+// utilizador — permite impor limites diários e controlar custos.
+model AiUsage {
+  id     String @id @default(cuid())
+  userId String
+  day    String // "YYYY-MM-DD" (Europe/Lisbon)
+  kind   String // "chat" | "avaliar"
+  count  Int    @default(0)
+
+  @@unique([userId, day, kind])
+}
+
 // Estado/cursor do scraper (para retomar entre execuções — ex. cron da Vercel)
 model ScrapeState {
   id        String   @id

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
 import AssistantMessage from "@/components/assistant-message";
 
 type Msg = { role: "user" | "assistant"; content: string };
@@ -25,6 +26,7 @@ export default function CarAssistant({
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsLogin, setNeedsLogin] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   async function send(text: string) {
@@ -42,6 +44,14 @@ export default function CarAssistant({
         body: JSON.stringify({ messages: next, context: { kind, id } }),
       });
       const data = await res.json();
+      if (res.status === 401) {
+        // sem conta: repõe a pergunta no input e mostra convite ao login
+        setMessages(messages);
+        setInput(content);
+        setNeedsLogin(true);
+        setLoading(false);
+        return;
+      }
       if (!res.ok) throw new Error(data?.error || "Erro do assistente.");
       setMessages((m) => [
         ...m,
@@ -117,6 +127,20 @@ export default function CarAssistant({
         {error && (
           <div className="rounded-xl bg-clay/10 px-3 py-2 text-[0.85rem] font-medium text-clay">
             {error}
+          </div>
+        )}
+        {needsLogin && (
+          <div className="rounded-xl border border-outline bg-cream px-4 py-3 text-[0.88rem] text-ink">
+            <b>Entra na tua conta para usar o assistente.</b> É grátis e demora
+            menos de um minuto.
+            <div className="mt-2 flex gap-2">
+              <Link href="/auth/login" className="btn-clay btn-xs">
+                Entrar
+              </Link>
+              <Link href="/auth/register" className="btn-line btn-xs">
+                Criar conta grátis
+              </Link>
+            </div>
           </div>
         )}
       </div>

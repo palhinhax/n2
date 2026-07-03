@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { consumeQuota } from "@/lib/ai-limit";
 import { marketStats } from "@/lib/price-intel";
-import { valuate } from "@/lib/valuation";
+import {
+  aiValuation,
+  findComparables,
+  type ValuationInput,
+} from "@/lib/valuation";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +51,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Ano inválido." }, { status: 400 });
   }
 
-  const result = await valuate({
+  const input: ValuationInput = {
     marca,
     modelo,
     ano,
@@ -54,7 +60,30 @@ export async function POST(req: Request) {
     caixa: str(body.caixa, 30),
     versao: str(body.versao, 60),
     notas: str(body.notas, 500),
-  });
+  };
 
-  return NextResponse.json(result);
+  // estatísticas e comparáveis: públicos (com ou sem conta)
+  const [stats, similar] = await Promise.all([
+    marketStats({ brand: marca, model: modelo, year: ano }),
+    findComparables(input),
+  ]);
+
+  // análise por IA: só com conta e dentro do limite diário
+  const session = await auth();
+  const userId = session?.user?.id;
+  let ai = null;
+  let aiGate: "login" | "limit" | null = null;
+
+  if (!userId) {
+    aiGate = "login";
+  } else {
+    const quota = await consumeQuota(userId, "avaliar");
+    if (!quota.allowed) {
+      aiGate = "limit";
+    } else {
+      ai = await aiValuation(input, stats, similar);
+    }
+  }
+
+  return NextResponse.json({ stats, similar, ai, aiGate });
 }

@@ -9,8 +9,16 @@ export default function SalePanel({ car }: { car: any }) {
   const [negotiable, setNegotiable] = useState(car.negotiable);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
 
   async function save(nextForSale: boolean) {
+    // para colocar à venda é preciso um preço válido
+    if (nextForSale && !(+price > 0)) {
+      setErr("Indica o preço de venda para colocar o carro à venda.");
+      setMsg("");
+      return;
+    }
+    setErr("");
     setBusy(true);
     setMsg("");
     const res = await fetch(`/api/cars/${car.id}`, {
@@ -49,12 +57,15 @@ export default function SalePanel({ car }: { car: any }) {
       </p>
       <div className="flex flex-col gap-2">
         <div>
-          <label className="flabel">Preço (€)</label>
+          <label className="flabel">Preço (€) *</label>
           <input
             type="number"
             className="finput"
             value={price}
-            onChange={(e) => setPrice(e.target.value)}
+            onChange={(e) => {
+              setPrice(e.target.value);
+              if (err && +e.target.value > 0) setErr("");
+            }}
             placeholder="ex: 15500"
           />
         </div>
@@ -78,11 +89,16 @@ export default function SalePanel({ car }: { car: any }) {
         ) : (
           <button
             className="btn-clay"
-            disabled={busy || !(+price > 0)}
+            disabled={busy}
             onClick={() => save(true)}
           >
             Colocar à venda →
           </button>
+        )}
+        {err && (
+          <p className="rounded-lg bg-clay/10 px-3 py-2 text-[0.85rem] font-semibold text-clay">
+            {err}
+          </p>
         )}
         {msg && (
           <p className="text-[0.85rem] font-semibold text-olive">{msg}</p>

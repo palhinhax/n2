@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import AssistantMessage from "@/components/assistant-message";
 
 type Msg = { role: "user" | "assistant"; content: string };
@@ -18,6 +19,7 @@ export default function FloatingAssistant() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsLogin, setNeedsLogin] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -43,6 +45,14 @@ export default function FloatingAssistant() {
         body: JSON.stringify({ messages: next }),
       });
       const data = await res.json();
+      if (res.status === 401) {
+        // sem conta: repõe a pergunta no input e mostra convite ao login
+        setMessages(messages);
+        setInput(content);
+        setNeedsLogin(true);
+        setLoading(false);
+        return;
+      }
       if (!res.ok) throw new Error(data?.error || "Erro do assistente.");
       setMessages((m) => [
         ...m,
@@ -133,6 +143,19 @@ export default function FloatingAssistant() {
             {error && (
               <div className="rounded-xl bg-clay/10 px-3 py-2 text-[0.83rem] font-medium text-clay">
                 {error}
+              </div>
+            )}
+            {needsLogin && (
+              <div className="rounded-xl border border-outline bg-cream px-3 py-2.5 text-[0.85rem] text-ink">
+                <b>Entra na tua conta para usar o assistente.</b> É grátis.
+                <div className="mt-2 flex gap-2">
+                  <Link href="/auth/login" className="btn-clay btn-xs">
+                    Entrar
+                  </Link>
+                  <Link href="/auth/register" className="btn-line btn-xs">
+                    Criar conta grátis
+                  </Link>
+                </div>
               </div>
             )}
           </div>

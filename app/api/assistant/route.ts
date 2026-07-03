@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { consumeQuota } from "@/lib/ai-limit";
 import {
   ASSISTANT_SYSTEM,
   ASSISTANT_SYSTEM_SITE,
@@ -20,6 +22,31 @@ export async function POST(req: Request) {
     return NextResponse.json(
       { error: "O assistente não está configurado (falta OPENAI_API_KEY)." },
       { status: 503 }
+    );
+  }
+
+  // só utilizadores com conta podem usar o assistente
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) {
+    return NextResponse.json(
+      {
+        error: "Entra na tua conta (grátis) para falar com o assistente.",
+        code: "login_required",
+      },
+      { status: 401 }
+    );
+  }
+
+  // limite diário de mensagens
+  const quota = await consumeQuota(userId, "chat");
+  if (!quota.allowed) {
+    return NextResponse.json(
+      {
+        error: `Atingiste o limite de ${quota.limit} mensagens por dia. Volta amanhã!`,
+        code: "limit_reached",
+      },
+      { status: 429 }
     );
   }
 

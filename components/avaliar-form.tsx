@@ -90,6 +90,7 @@ export default function AvaliarForm({
   const ai = res?.ai ?? null;
   const stats = res?.stats ?? null;
   const similar: Similar[] = res?.similar ?? [];
+  const aiGate: "login" | "limit" | null = res?.aiGate ?? null;
 
   return (
     <div className="grid items-start gap-5 md:grid-cols-2">
@@ -258,6 +259,27 @@ export default function AvaliarForm({
                 Mediana <b className="text-ink">{eur(stats.median)}</b> · com
                 base em {stats.count} anúncios semelhantes
               </p>
+              {aiGate === "login" && (
+                <div className="mt-4 rounded-xl border border-outline bg-cream px-4 py-3 text-left text-[0.88rem] text-ink">
+                  <b>✨ Queres a avaliação inteligente?</b> Com conta (grátis)
+                  recebes o intervalo afinado ao teu carro, o preço de anúncio
+                  recomendado e uma análise escrita.
+                  <div className="mt-2 flex gap-2">
+                    <Link href="/auth/register" className="btn-clay btn-xs">
+                      Criar conta grátis
+                    </Link>
+                    <Link href="/auth/login" className="btn-line btn-xs">
+                      Já tenho conta
+                    </Link>
+                  </div>
+                </div>
+              )}
+              {aiGate === "limit" && (
+                <p className="mt-4 rounded-xl bg-bark/10 px-4 py-2.5 text-[0.85rem] font-medium text-bark">
+                  Atingiste o limite diário de avaliações com IA — mostramos os
+                  dados de mercado. Volta amanhã para nova análise.
+                </p>
+              )}
               <div className="mt-4 flex flex-wrap justify-center gap-2">
                 <Link href="/garagem/novo" className="btn-clay btn-sm">
                   Criar anúncio grátis

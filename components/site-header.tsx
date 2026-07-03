@@ -32,8 +32,7 @@ export default async function SiteHeader() {
   return (
     <>
       <div className="bg-ink py-1 text-center text-[0.82rem] text-[#D9CBAE]">
-        🎉 <b className="text-stone2">100% grátis</b> — anuncia sem pagar nada,
-        para sempre.
+        🎉 <b className="text-stone2">100% grátis</b> — anuncia sem pagar nada.
       </div>
       <header className="sticky top-0 z-50 border-b border-outline bg-white/90 backdrop-blur">
         <div className="mx-auto flex w-[min(1240px,94%)] items-center gap-2 py-2 md:gap-4">
