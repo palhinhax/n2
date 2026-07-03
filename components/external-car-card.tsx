@@ -21,7 +21,7 @@ export default function ExternalCarCard({ listing }: { listing: any }) {
       href={`/carros/externo/${listing.id}`}
       className="n2-card flex flex-col overflow-hidden transition hover:-translate-y-1 hover:shadow-warmlg"
     >
-      <div className="relative flex aspect-[16/10] items-center justify-center bg-gradient-to-b from-[#FCF4E2] to-[#F4E2BC]">
+      <div className="relative aspect-[16/10] overflow-hidden bg-gradient-to-b from-[#FCF4E2] to-[#F4E2BC]">
         <span className="n2-tag absolute left-2 top-2 z-10 bg-bark">
           {SOURCE_LABEL[listing.source] ?? listing.source}
         </span>
@@ -30,12 +30,12 @@ export default function ExternalCarCard({ listing }: { listing: any }) {
           <img
             src={photo}
             alt=""
-            className="h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full object-cover"
             loading="lazy"
             referrerPolicy="no-referrer"
           />
         ) : (
-          <span className="text-[0.85rem] font-medium text-n2muted">
+          <span className="absolute inset-0 flex items-center justify-center text-[0.85rem] font-medium text-n2muted">
             Sem foto
           </span>
         )}

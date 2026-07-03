@@ -2,10 +2,9 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
-import CarCard from "@/components/car-card";
-import ExternalCarCard from "@/components/external-car-card";
 import Filters from "@/components/filters";
-import AdSlot from "@/components/ad-slot";
+import CarGrid from "@/components/car-grid";
+import { fetchListingPage } from "@/lib/car-listing";
 
 export const dynamic = "force-dynamic";
 
@@ -14,116 +13,76 @@ export default async function Carros({
 }: {
   searchParams: Record<string, string>;
 }) {
-  const where: any = { forSale: true, status: "APPROVED" };
-  if (searchParams.marca) where.brandId = +searchParams.marca;
-  if (searchParams.modelo) where.modelId = +searchParams.modelo;
-  if (searchParams.precoMax) where.price = { lte: +searchParams.precoMax };
-  if (searchParams.fuel) where.fuel = searchParams.fuel;
-  if (searchParams.caixa) where.gearbox = searchParams.caixa;
-  if (searchParams.anoMin) where.year = { gte: +searchParams.anoMin };
-  if (searchParams.kmMax) where.km = { lte: +searchParams.kmMax };
-  if (searchParams.autonomiaMin)
-    where.evRange = { gte: +searchParams.autonomiaMin };
-
   const ordenar = searchParams.ordenar || "recentes";
-  const orderBy: any =
-    ordenar === "precoAsc"
-      ? { price: "asc" }
-      : ordenar === "precoDesc"
-        ? { price: "desc" }
-        : ordenar === "km"
-          ? { km: "asc" }
-          : { createdAt: "desc" };
 
-  const brands = await prisma.brand.findMany({
-    orderBy: { name: "asc" },
-    include: { models: { orderBy: { name: "asc" } } },
-  });
+  // ----- Marcas/modelos: junta os do site (tabela Brand) com os do scraping -----
+  const canonBrand = (name: string) => {
+    const t = name.trim();
+    if (["vw", "volkswagen"].includes(t.toLowerCase())) return "Volkswagen";
+    return t;
+  };
 
-  // filtros equivalentes para os anúncios externos (marca/modelo por nome)
-  const whereExt: any = { active: true };
-  if (searchParams.marca) {
-    const b = brands.find((x) => x.id === +searchParams.marca);
-    if (b) whereExt.brand = { equals: b.name, mode: "insensitive" };
-  }
-  if (searchParams.modelo) {
-    const m = brands
-      .flatMap((b) => b.models)
-      .find((x) => x.id === +searchParams.modelo);
-    if (m) whereExt.model = { contains: m.name, mode: "insensitive" };
-  }
-  if (searchParams.precoMax) whereExt.price = { lte: +searchParams.precoMax };
-  if (searchParams.fuel) whereExt.fuel = searchParams.fuel;
-  if (searchParams.caixa) whereExt.gearbox = searchParams.caixa;
-  if (searchParams.anoMin) whereExt.year = { gte: +searchParams.anoMin };
-  if (searchParams.kmMax) whereExt.km = { lte: +searchParams.kmMax };
-
-  const orderByExt: any =
-    ordenar === "precoAsc"
-      ? { price: "asc" }
-      : ordenar === "precoDesc"
-        ? { price: "desc" }
-        : ordenar === "km"
-          ? { km: "asc" }
-          : { firstSeenAt: "desc" };
-
-  const [cars, external] = await Promise.all([
-    prisma.car.findMany({
-      where,
-      include: {
-        brand: true,
-        model: true,
-        photos: { orderBy: { position: "asc" } },
-        owner: true,
-        _count: { select: { offers: true } },
-      },
-      orderBy,
-      take: 60,
+  const [brandTable, scrapedBrands, scrapedModels] = await Promise.all([
+    prisma.brand.findMany({
+      orderBy: { name: "asc" },
+      include: { models: { orderBy: { name: "asc" } } },
     }),
-    // filtro de autonomia é exclusivo dos carros do site (externos não têm evRange)
-    searchParams.autonomiaMin
-      ? Promise.resolve([])
-      : prisma.scrapedListing.findMany({
-          where: whereExt,
-          orderBy: orderByExt,
-          take: 60,
-        }),
+    prisma.scrapedListing.findMany({
+      where: { active: true, brand: { not: null } },
+      select: { brand: true },
+      distinct: ["brand"],
+    }),
+    prisma.scrapedListing.findMany({
+      where: { active: true, brand: { not: null }, model: { not: null } },
+      select: { brand: true, model: true },
+      distinct: ["brand", "model"],
+    }),
   ]);
 
-  // junta os dois tipos e reordena
-  type Item =
-    | { kind: "car"; sortKey: number; data: (typeof cars)[number] }
-    | { kind: "ext"; sortKey: number; data: (typeof external)[number] };
+  const brandMap = new Map<string, { name: string; models: Set<string> }>();
+  const addBrand = (name: string) => {
+    const key = name.toLowerCase();
+    let e = brandMap.get(key);
+    if (!e) {
+      e = { name, models: new Set<string>() };
+      brandMap.set(key, e);
+    }
+    return e;
+  };
+  for (const b of brandTable) {
+    const e = addBrand(b.name);
+    for (const m of b.models) e.models.add(m.name);
+  }
+  for (const r of scrapedBrands) if (r.brand) addBrand(canonBrand(r.brand));
+  for (const r of scrapedModels) {
+    if (!r.brand) continue;
+    const e = addBrand(canonBrand(r.brand));
+    if (r.model) e.models.add(r.model);
+  }
+  const brands = Array.from(brandMap.values())
+    .map((b) => ({
+      name: b.name,
+      models: Array.from(b.models).sort((a, c) => a.localeCompare(c)),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
-  const sortKeyCar = (c: (typeof cars)[number]) =>
-    ordenar === "precoAsc" || ordenar === "precoDesc"
-      ? (c.price ?? Number.MAX_SAFE_INTEGER)
-      : ordenar === "km"
-        ? c.km
-        : -c.createdAt.getTime();
-  const sortKeyExt = (e: (typeof external)[number]) =>
-    ordenar === "precoAsc" || ordenar === "precoDesc"
-      ? (e.price ?? Number.MAX_SAFE_INTEGER)
-      : ordenar === "km"
-        ? (e.km ?? Number.MAX_SAFE_INTEGER)
-        : -e.firstSeenAt.getTime();
-
-  const items: Item[] = [
-    ...cars.map((c) => ({
-      kind: "car" as const,
-      sortKey: sortKeyCar(c),
-      data: c,
-    })),
-    ...external.map((e) => ({
-      kind: "ext" as const,
-      sortKey: sortKeyExt(e),
-      data: e,
-    })),
-  ]
-    .sort((a, b) =>
-      ordenar === "precoDesc" ? b.sortKey - a.sortKey : a.sortKey - b.sortKey
-    )
-    .slice(0, 60);
+  // ----- Filtros por NOME (funciona para carros do site e externos) -----
+  // primeira página da lista combinada (o resto carrega por scroll infinito)
+  const query: Record<string, string> = {};
+  for (const k of [
+    "marca",
+    "modelo",
+    "precoMax",
+    "fuel",
+    "caixa",
+    "anoMin",
+    "kmMax",
+    "ordenar",
+  ]) {
+    const v = searchParams[k];
+    if (v) query[k] = v;
+  }
+  const firstPage = await fetchListingPage(query, 0, 24);
 
   const sortLink = (v: string) => {
     const p = new URLSearchParams(searchParams as any);
@@ -146,7 +105,7 @@ export default async function Carros({
           <div>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <span className="font-head text-[1.3rem] font-extrabold text-ink">
-                <span className="text-clay">{items.length}</span> anúncios
+                Carros usados
               </span>
               <div className="flex flex-wrap gap-1.5">
                 {[
@@ -165,42 +124,12 @@ export default async function Carros({
                 ))}
               </div>
             </div>
-            {items.length === 0 ? (
-              <div className="n2-card p-12 text-center">
-                <h3 className="font-head text-[1.3rem] font-bold text-ink">
-                  Sem resultados nesta estrada
-                </h3>
-                <p className="text-n2muted">Experimenta alargar os filtros.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {items
-                  .slice(0, 2)
-                  .map((it) =>
-                    it.kind === "car" ? (
-                      <CarCard key={`c-${it.data.id}`} car={it.data} />
-                    ) : (
-                      <ExternalCarCard
-                        key={`e-${it.data.id}`}
-                        listing={it.data}
-                      />
-                    )
-                  )}
-                {items.length > 2 && <AdSlot index={2} />}
-                {items
-                  .slice(2)
-                  .map((it) =>
-                    it.kind === "car" ? (
-                      <CarCard key={`c-${it.data.id}`} car={it.data} />
-                    ) : (
-                      <ExternalCarCard
-                        key={`e-${it.data.id}`}
-                        listing={it.data}
-                      />
-                    )
-                  )}
-              </div>
-            )}
+            <CarGrid
+              key={JSON.stringify(query)}
+              initialItems={firstPage.items}
+              initialNextOffset={firstPage.nextOffset}
+              query={query}
+            />
           </div>
         </div>
       </div>

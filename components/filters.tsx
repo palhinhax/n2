@@ -1,32 +1,48 @@
 "use client";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { FUELS, GEARS } from "@/lib/constants";
 
-export default function Filters({ brands }: { brands: any[] }) {
+export default function Filters({
+  brands,
+}: {
+  brands: { name: string; models: string[] }[];
+}) {
   const router = useRouter();
   const sp = useSearchParams();
-  const [brandId, setBrandId] = useState(sp.get("marca") || "");
-  const brand = brands.find((b) => String(b.id) === brandId);
+  const [brandName, setBrandName] = useState(sp.get("marca") || "");
+  const brand = brands.find((b) => b.name === brandName);
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function apply() {
+  const KEYS = [
+    "marca",
+    "modelo",
+    "precoMax",
+    "fuel",
+    "caixa",
+    "anoMin",
+    "kmMax",
+    "ordenar",
+  ];
+
+  // aplica os filtros lendo os valores atuais (com possíveis overrides)
+  function applyNow(overrides: Record<string, string> = {}) {
     const params = new URLSearchParams();
-    for (const k of [
-      "marca",
-      "modelo",
-      "precoMax",
-      "fuel",
-      "caixa",
-      "anoMin",
-      "kmMax",
-      "autonomiaMin",
-      "ordenar",
-    ]) {
+    for (const k of KEYS) {
       const v =
-        (document.getElementById("f-" + k) as HTMLInputElement)?.value || "";
+        k in overrides
+          ? overrides[k]
+          : (document.getElementById("f-" + k) as HTMLInputElement)?.value ||
+            "";
       if (v) params.set(k, v);
     }
     router.push("/carros?" + params.toString());
+  }
+
+  // números: espera o utilizador parar de escrever antes de aplicar
+  function applyDebounced() {
+    if (debounce.current) clearTimeout(debounce.current);
+    debounce.current = setTimeout(() => applyNow(), 500);
   }
 
   const fuel = sp.get("fuel") || "";
@@ -39,12 +55,15 @@ export default function Filters({ brands }: { brands: any[] }) {
         <select
           id="f-marca"
           className="finput"
-          value={brandId}
-          onChange={(e) => setBrandId(e.target.value)}
+          value={brandName}
+          onChange={(e) => {
+            setBrandName(e.target.value);
+            applyNow({ marca: e.target.value, modelo: "" });
+          }}
         >
           <option value="">Todas</option>
           {brands.map((b) => (
-            <option key={b.id} value={b.id}>
+            <option key={b.name} value={b.name}>
               {b.name}
             </option>
           ))}
@@ -56,12 +75,13 @@ export default function Filters({ brands }: { brands: any[] }) {
           id="f-modelo"
           className="finput"
           defaultValue={sp.get("modelo") || ""}
-          key={brandId}
+          key={brandName}
+          onChange={() => applyNow()}
         >
           <option value="">Todos</option>
-          {(brand?.models || []).map((m: any) => (
-            <option key={m.id} value={m.id}>
-              {m.name}
+          {(brand?.models || []).map((m) => (
+            <option key={m} value={m}>
+              {m}
             </option>
           ))}
         </select>
@@ -74,11 +94,17 @@ export default function Filters({ brands }: { brands: any[] }) {
           className="finput"
           placeholder="ex: 20000"
           defaultValue={sp.get("precoMax") || ""}
+          onChange={applyDebounced}
         />
       </div>
       <div>
         <label className="flabel">Combustível</label>
-        <select id="f-fuel" className="finput" defaultValue={fuel}>
+        <select
+          id="f-fuel"
+          className="finput"
+          defaultValue={fuel}
+          onChange={() => applyNow()}
+        >
           <option value="">Todos</option>
           {FUELS.map((f) => (
             <option key={f}>{f}</option>
@@ -86,21 +112,12 @@ export default function Filters({ brands }: { brands: any[] }) {
         </select>
       </div>
       <div>
-        <label className="flabel">Autonomia mín. (km) ⚡</label>
-        <input
-          id="f-autonomiaMin"
-          type="number"
-          className="finput"
-          placeholder="ex: 300"
-          defaultValue={sp.get("autonomiaMin") || ""}
-        />
-      </div>
-      <div>
         <label className="flabel">Caixa</label>
         <select
           id="f-caixa"
           className="finput"
           defaultValue={sp.get("caixa") || ""}
+          onChange={() => applyNow()}
         >
           <option value="">Todas</option>
           {GEARS.map((g) => (
@@ -117,6 +134,7 @@ export default function Filters({ brands }: { brands: any[] }) {
             className="finput"
             placeholder="2018"
             defaultValue={sp.get("anoMin") || ""}
+            onChange={applyDebounced}
           />
         </div>
         <div>
@@ -127,6 +145,7 @@ export default function Filters({ brands }: { brands: any[] }) {
             className="finput"
             placeholder="150000"
             defaultValue={sp.get("kmMax") || ""}
+            onChange={applyDebounced}
           />
         </div>
       </div>
@@ -135,9 +154,6 @@ export default function Filters({ brands }: { brands: any[] }) {
         id="f-ordenar"
         defaultValue={sp.get("ordenar") || ""}
       />
-      <button className="btn-clay" onClick={apply}>
-        Aplicar filtros
-      </button>
       <button
         className="btn-line btn-xs"
         onClick={() => router.push("/carros")}
