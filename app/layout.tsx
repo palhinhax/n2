@@ -16,8 +16,17 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Next.js SaaS Template",
-  description: "A production-grade SaaS template with Next.js 14, Prisma, and Auth.js",
+  title: "Nacional 2 — Compra e vende carros. Grátis.",
+  description:
+    "O marketplace de carros 100% grátis. Garagem digital, lembretes de IPO e manutenção, ofertas diretas e anúncios sem comissões.",
+  icons: {
+    icon: [
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
+  manifest: "/site.webmanifest",
 };
 
 export default function RootLayout({
@@ -26,7 +35,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="pt-PT" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

@@ -7,6 +7,7 @@ const registerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
+  district: z.string().optional(),
 });
 
 export async function POST(request: Request) {
@@ -16,12 +17,15 @@ export async function POST(request: Request) {
 
     if (!result.success) {
       return NextResponse.json(
-        { message: "Validation failed", errors: result.error.flatten().fieldErrors },
+        {
+          message: "Validation failed",
+          errors: result.error.flatten().fieldErrors,
+        },
         { status: 400 }
       );
     }
 
-    const { name, email, password } = result.data;
+    const { name, email, password, district } = result.data;
 
     const existingUser = await prisma.user.findUnique({
       where: { email },
@@ -41,6 +45,7 @@ export async function POST(request: Request) {
         name,
         email,
         passwordHash,
+        district: district || null,
       },
       select: {
         id: true,

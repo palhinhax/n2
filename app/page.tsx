@@ -1,107 +1,197 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { ArrowRight, Code2, Database, Shield, Palette } from "lucide-react";
+import Image from "next/image";
+import { prisma } from "@/lib/prisma";
+import SiteHeader from "@/components/site-header";
+import SiteFooter from "@/components/site-footer";
+import CarCard from "@/components/car-card";
+import AdSlot from "@/components/ad-slot";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const [featured, brands, totals] = await Promise.all([
+    prisma.car.findMany({
+      where: { forSale: true, status: "APPROVED" },
+      include: {
+        brand: true,
+        model: true,
+        photos: { orderBy: { position: "asc" } },
+        owner: true,
+        _count: { select: { offers: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 8,
+    }),
+    prisma.brand.findMany({ orderBy: { name: "asc" } }),
+    prisma.car.count({ where: { forSale: true, status: "APPROVED" } }),
+  ]);
+
   return (
-    <div className="min-h-screen">
-      {/* Header */}
-      <header className="border-b">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <div className="font-bold text-xl">SaaS Template</div>
-          <div className="flex items-center gap-4">
-            <Link href="/auth/login">
-              <Button variant="ghost">Sign in</Button>
-            </Link>
-            <Link href="/auth/register">
-              <Button>Get started</Button>
-            </Link>
-          </div>
-        </div>
-      </header>
+    <div className="flex min-h-screen flex-col bg-cream">
+      <SiteHeader />
 
-      {/* Hero */}
-      <section className="container mx-auto px-4 py-24 text-center">
-        <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">
-          Production-Ready
-          <br />
-          <span className="text-primary">SaaS Template</span>
-        </h1>
-        <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
-          A full-stack Next.js 14 template with authentication, database, and
-          beautiful UI components. Start building your SaaS product today.
-        </p>
-        <div className="mt-10 flex items-center justify-center gap-4">
-          <Link href="/auth/register">
-            <Button size="lg">
-              Get started
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </Link>
-          <Link href="/auth/login">
-            <Button size="lg" variant="outline">
-              Sign in
-            </Button>
-          </Link>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="border-t bg-muted/50 py-24">
-        <div className="container mx-auto px-4">
-          <h2 className="text-center text-3xl font-bold">Built with the Best Stack</h2>
-          <p className="mx-auto mt-4 max-w-2xl text-center text-muted-foreground">
-            Modern technologies carefully selected for developer experience and production readiness.
+      {/* hero */}
+      <section className="border-b border-outline bg-gradient-to-b from-[#FFFDF7] via-[#FBF3E0] to-[#F7EAD0]">
+        <div className="mx-auto w-[min(1240px,94%)] py-12 text-center">
+          <h1 className="font-head text-[clamp(1.9rem,4vw,3rem)] font-extrabold text-ink">
+            O portal de carros à tua maneira
+          </h1>
+          <p className="mb-6 text-[1.08rem] text-n2muted">
+            Compra e vende carros usados{" "}
+            <b className="text-olive">sem pagar comissões</b>. Garagem,
+            lembretes, ofertas — tudo grátis.
           </p>
-          <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-            <FeatureCard
-              icon={<Code2 className="h-8 w-8" />}
-              title="Next.js 14"
-              description="App Router with React Server Components and TypeScript"
-            />
-            <FeatureCard
-              icon={<Database className="h-8 w-8" />}
-              title="Prisma + PostgreSQL"
-              description="Type-safe database access with migrations"
-            />
-            <FeatureCard
-              icon={<Shield className="h-8 w-8" />}
-              title="Auth.js"
-              description="Secure authentication with credentials provider"
-            />
-            <FeatureCard
-              icon={<Palette className="h-8 w-8" />}
-              title="shadcn/ui"
-              description="Beautiful, accessible UI components with Tailwind"
+          <form
+            action="/carros"
+            className="n2-card mx-auto grid max-w-[900px] grid-cols-2 gap-3 p-5 text-left md:grid-cols-5"
+          >
+            <div>
+              <label className="flabel">Marca</label>
+              <select name="marca" className="finput">
+                <option value="">Todas</option>
+                {brands.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="flabel">Preço até</label>
+              <select name="precoMax" className="finput">
+                <option value="">Sem limite</option>
+                {[10000, 15000, 20000, 30000, 50000, 80000].map((p) => (
+                  <option key={p} value={p}>
+                    {p.toLocaleString("pt-PT")} €
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="flabel">Combustível</label>
+              <select name="fuel" className="finput">
+                <option value="">Todos</option>
+                {[
+                  "Gasolina",
+                  "Diesel",
+                  "Híbrido",
+                  "Híbrido Plug-In",
+                  "Elétrico",
+                  "GPL",
+                ].map((f) => (
+                  <option key={f}>{f}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="flabel">Ano desde</label>
+              <select name="anoMin" className="finput">
+                <option value="">Qualquer</option>
+                {[2015, 2018, 2020, 2022, 2024].map((y) => (
+                  <option key={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+            <button className="btn-clay self-end">Pesquisar →</button>
+          </form>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <Link className="n2-chip" href="/carros?fuel=El%C3%A9trico">
+              ⚡ Elétricos
+            </Link>
+            <Link className="n2-chip" href="/carros?precoMax=10000">
+              💶 Até 10 000 €
+            </Link>
+            <Link className="n2-chip" href="/carros?caixa=Autom%C3%A1tica">
+              ⚙ Automáticos
+            </Link>
+            <Link className="n2-chip" href="/carros?autonomiaMin=300">
+              🔋 +300 km autonomia
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <div className="mx-auto mt-6 w-[min(1240px,94%)]">
+        <AdSlot variant="banner" index={0} />
+      </div>
+
+      {/* sell strip com a imagem da marca */}
+      <section className="mx-auto mt-8 w-[min(1240px,94%)]">
+        <div className="grid items-center overflow-hidden rounded-2xl bg-gradient-to-r from-ink to-[#37331F] text-[#F3ECD9] md:grid-cols-[1fr_320px]">
+          <div className="p-8">
+            <h2 className="font-head text-[1.7rem] font-extrabold text-white">
+              A tua garagem digital.{" "}
+              <span className="text-stone2">Vender é opcional.</span>
+            </h2>
+            <p className="max-w-[52ch] text-[#C9BFA6]">
+              Guarda os teus carros, recebe lembretes de IPO, seguro e
+              manutenção — e quando quiseres vender, é um clique. Grátis.
+            </p>
+            <Link href="/garagem/novo" className="btn-clay mt-4">
+              Adicionar o meu carro →
+            </Link>
+          </div>
+          <div className="relative hidden h-full min-h-[220px] md:block">
+            <Image
+              src="/brand/nacional2-hero.png"
+              alt="Marco da Estrada Nacional 2"
+              fill
+              className="object-cover"
             />
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t py-12">
-        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p>Built with ❤️ using Next.js, Prisma, and shadcn/ui</p>
+      {/* featured */}
+      <section className="mx-auto mt-10 w-[min(1240px,94%)]">
+        <div className="mb-4 flex items-end justify-between">
+          <div>
+            <span className="font-head text-[0.82rem] font-bold uppercase tracking-[0.14em] text-clay">
+              À venda agora
+            </span>
+            <h2 className="font-head text-[1.7rem] font-extrabold text-ink">
+              {totals} carros à tua espera
+            </h2>
+          </div>
+          <Link
+            href="/carros"
+            className="font-semibold text-bark underline underline-offset-2"
+          >
+            Ver todos →
+          </Link>
         </div>
-      </footer>
-    </div>
-  );
-}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {featured.slice(0, 3).map((c) => (
+            <CarCard key={c.id} car={c} />
+          ))}
+          <AdSlot index={1} />
+          {featured.slice(3, 7).map((c) => (
+            <CarCard key={c.id} car={c} />
+          ))}
+        </div>
+      </section>
 
-function FeatureCard({
-  icon,
-  title,
-  description,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="rounded-lg border bg-background p-6">
-      <div className="text-primary">{icon}</div>
-      <h3 className="mt-4 font-semibold">{title}</h3>
-      <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+      {/* trust */}
+      <section className="mx-auto mt-10 grid w-[min(1240px,94%)] grid-cols-2 gap-3 lg:grid-cols-4">
+        {[
+          ["0€", "100% grátis", "Sem comissões, nunca"],
+          ["🔔", "Lembretes", "IPO, seguro, manutenção"],
+          ["🤝", "Ofertas diretas", "Negoceia com o vendedor"],
+          ["✓", "Moderação", "Anúncios validados pela equipa"],
+        ].map(([ic, t, s]) => (
+          <div key={t} className="n2-card flex items-center gap-3 px-4 py-3">
+            <div className="grid h-11 w-11 place-items-center rounded-xl bg-cream font-head font-extrabold text-bark">
+              {ic}
+            </div>
+            <div>
+              <b className="block font-head leading-tight text-ink">{t}</b>
+              <span className="text-[0.8rem] text-n2muted">{s}</span>
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <SiteFooter />
     </div>
   );
 }

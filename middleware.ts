@@ -3,31 +3,38 @@ import { NextResponse } from "next/server";
 
 export default auth((req) => {
   const isLoggedIn = !!req.auth;
+  const role = (req.auth?.user as any)?.role;
   const { pathname } = req.nextUrl;
 
-  // Protected routes
-  const protectedRoutes = ["/dashboard"];
-  const isProtectedRoute = protectedRoutes.some((route) =>
-    pathname.startsWith(route)
-  );
+  const isAuthRoute =
+    pathname.startsWith("/auth/login") || pathname.startsWith("/auth/register");
 
-  // Auth routes (should redirect to dashboard if logged in)
-  const authRoutes = ["/auth/login", "/auth/register"];
-  const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
-
-  if (isProtectedRoute && !isLoggedIn) {
+  if (!isAuthRoute && !isLoggedIn) {
     const loginUrl = new URL("/auth/login", req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
+  // /admin apenas para administradores
+  if (pathname.startsWith("/admin") && isLoggedIn && role !== "ADMIN") {
+    return NextResponse.redirect(new URL("/", req.url));
+  }
+
   if (isAuthRoute && isLoggedIn) {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
+    return NextResponse.redirect(new URL("/garagem", req.url));
   }
 
   return NextResponse.next();
 });
 
+// Matcher explícito: só corre nas rotas que precisam de auth.
+// (Evita intercetar o WebSocket do HMR e assets — causava "Error handling upgrade request".)
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    "/dashboard/:path*",
+    "/garagem/:path*",
+    "/admin/:path*",
+    "/auth/login",
+    "/auth/register",
+  ],
 };

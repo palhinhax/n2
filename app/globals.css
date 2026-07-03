@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700;800&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -61,5 +62,42 @@
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+}
+
+/* ═══════ Nacional 2 — componentes ═══════ */
+@layer components {
+  .n2-btn {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-full px-5 py-2.5 font-head font-bold tracking-wide transition hover:-translate-y-px;
+  }
+  .btn-clay {
+    @apply n2-btn bg-clay text-white shadow-warm hover:bg-[#BC8636];
+  }
+  .btn-ink {
+    @apply n2-btn bg-ink text-[#FBF3E1] shadow-warm hover:bg-[#35322A];
+  }
+  .btn-olive {
+    @apply n2-btn bg-olive text-[#F3F0DF] shadow-warm;
+  }
+  .btn-line {
+    @apply n2-btn border border-outline2 bg-white text-ink hover:border-clay;
+  }
+  .btn-xs {
+    @apply px-4 py-1.5 text-[0.92rem];
+  }
+  .n2-card {
+    @apply rounded-2xl border border-outline bg-white shadow-warm;
+  }
+  .flabel {
+    @apply mb-1 block font-head text-[0.78rem] font-bold uppercase tracking-widest text-n2muted2;
+  }
+  .finput {
+    @apply w-full rounded-xl border border-outline2 bg-white px-3 py-2 text-[0.96rem] text-ink focus:border-clay focus:outline-none focus:ring-2 focus:ring-clay/20;
+  }
+  .n2-tag {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 font-head text-[0.72rem] font-bold uppercase tracking-wider text-white;
+  }
+  .n2-chip {
+    @apply cursor-pointer rounded-full border border-outline2 bg-white px-3 py-1 font-head text-[0.85rem] font-bold text-ink transition hover:border-clay;
   }
 }

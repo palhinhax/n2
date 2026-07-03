@@ -1,0 +1,86 @@
+import Link from "next/link";
+import Image from "next/image";
+import { auth, signOut } from "@/lib/auth";
+
+export default async function SiteHeader() {
+  const session = await auth();
+  const user = session?.user as any;
+  return (
+    <>
+      <div className="bg-ink py-1 text-center text-[0.82rem] text-[#D9CBAE]">
+        🎉 <b className="text-stone2">100% grátis</b> — anuncia sem pagar nada,
+        para sempre.
+      </div>
+      <header className="sticky top-0 z-50 border-b border-outline bg-white/90 backdrop-blur">
+        <div className="mx-auto flex w-[min(1240px,94%)] items-center gap-4 py-2">
+          <Link href="/" className="flex items-center gap-2">
+            <Image
+              src="/brand/nacional2-logo.png"
+              alt="Nacional 2"
+              width={34}
+              height={34}
+              className="rounded-md"
+            />
+            <span className="font-head text-[1.3rem] font-extrabold leading-none text-ink">
+              NACIONAL 2
+            </span>
+          </Link>
+          <nav className="hidden flex-1 gap-1 md:flex">
+            <Link
+              href="/carros"
+              className="rounded-full px-3 py-1.5 text-[0.95rem] font-semibold text-n2muted hover:bg-cream hover:text-ink"
+            >
+              Carros
+            </Link>
+            <Link
+              href="/carros?fuel=El%C3%A9trico"
+              className="rounded-full px-3 py-1.5 text-[0.95rem] font-semibold text-n2muted hover:bg-cream hover:text-ink"
+            >
+              Elétricos
+            </Link>
+            {user && (
+              <Link
+                href="/garagem"
+                className="rounded-full px-3 py-1.5 text-[0.95rem] font-semibold text-n2muted hover:bg-cream hover:text-ink"
+              >
+                A minha garagem
+              </Link>
+            )}
+            {user?.role === "ADMIN" && (
+              <Link
+                href="/admin"
+                className="rounded-full px-3 py-1.5 text-[0.95rem] font-semibold text-olive hover:bg-cream"
+              >
+                Admin
+              </Link>
+            )}
+          </nav>
+          <div className="ml-auto flex items-center gap-2">
+            {user ? (
+              <>
+                <span className="hidden text-[0.88rem] font-semibold text-n2muted sm:block">
+                  Olá, {user.name?.split(" ")[0]}
+                </span>
+                <form
+                  action={async () => {
+                    "use server";
+                    await signOut({ redirectTo: "/" });
+                  }}
+                >
+                  <button className="btn-line btn-xs">Sair</button>
+                </form>
+              </>
+            ) : (
+              <Link href="/auth/login" className="btn-line btn-xs">
+                Entrar
+              </Link>
+            )}
+            <Link href="/garagem/novo" className="btn-clay btn-xs">
+              + Vender grátis
+            </Link>
+          </div>
+        </div>
+      </header>
+    </>
+  );
+}

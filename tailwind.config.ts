@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import tailwindcssAnimate from "tailwindcss-animate";
 
 const config: Config = {
   darkMode: ["class"],
@@ -18,6 +19,19 @@ const config: Config = {
     },
     extend: {
       colors: {
+        // Nacional 2 palette
+        stone2: "#F5DBB3",
+        sand: "#D8B06A",
+        clay: "#CE994B",
+        weathered: "#8B8165",
+        bark: "#624E1C",
+        olive: "#414D11",
+        ink: "#1F1D18",
+        cream: "#FBF6EA",
+        outline: "#EDE2C6",
+        outline2: "#E0D0A8",
+        n2muted: "#6E6350",
+        n2muted2: "#988A6E",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -52,6 +66,14 @@ const config: Config = {
           foreground: "hsl(var(--card-foreground))",
         },
       },
+      fontFamily: {
+        head: ["'Barlow Condensed'", "sans-serif"],
+        barlow: ["Barlow", "sans-serif"],
+      },
+      boxShadow: {
+        warm: "0 1px 3px rgba(98,78,28,.08), 0 4px 14px rgba(98,78,28,.07)",
+        warmlg: "0 4px 10px rgba(98,78,28,.10), 0 14px 34px rgba(98,78,28,.12)",
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
@@ -73,6 +95,6 @@ const config: Config = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [tailwindcssAnimate],
 };
 export default config;

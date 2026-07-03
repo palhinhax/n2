@@ -1,5 +1,6 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// Nacional 2 — schema
+// NOTA: provider "sqlite" para arrancar sem instalar nada.
+// Para produção: muda para "postgresql" e ajusta o DATABASE_URL no .env.
 
 generator client {
   provider = "prisma-client-js"
@@ -15,8 +16,13 @@ model User {
   name         String?
   email        String   @unique
   passwordHash String
+  role         String   @default("USER") // USER | ADMIN
+  phone        String?
+  district     String?
   createdAt    DateTime @default(now())
   posts        Post[]
+  cars         Car[]
+  offers       Offer[]
 }
 
 model Post {
@@ -27,4 +33,136 @@ model Post {
   author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Brand {
+  id     Int     @id @default(autoincrement())
+  name   String  @unique
+  models Model[]
+  cars   Car[]
+}
+
+model Model {
+  id      Int    @id @default(autoincrement())
+  name    String
+  brandId Int
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  cars    Car[]
+
+  @@unique([brandId, name])
+}
+
+model Car {
+  id          String  @id @default(cuid())
+  ownerId     String
+  owner       User    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  brandId     Int
+  brand       Brand   @relation(fields: [brandId], references: [id])
+  modelId     Int
+  model       Model   @relation(fields: [modelId], references: [id])
+  version     String?
+  year        Int
+  km          Int
+  fuel        String // Gasolina | Diesel | Híbrido | Híbrido Plug-In | Elétrico | GPL
+  gearbox     String // Manual | Automática
+  power       Int?
+  evRange     Int? // autonomia WLTP (km) — elétricos e híbridos plug-in
+  plate       String?
+  color       String  @default("#CE994B")
+  description String?
+  district    String?
+
+  // venda (um carro pode estar na garagem sem estar à venda)
+  forSale    Boolean @default(false)
+  price      Int?
+  negotiable Boolean @default(true)
+  status     String  @default("GARAGE") // GARAGE | PENDING | APPROVED | REJECTED
+
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  photos    Photo[]
+  offers    Offer[]
+  reminders Reminder[]
+  views     CarView[]
+}
+
+model CarView {
+  id          String   @id @default(cuid())
+  carId       String
+  car         Car      @relation(fields: [carId], references: [id], onDelete: Cascade)
+  visitorHash String // identifica um visitante (via cookie) para contar pessoas únicas
+  createdAt   DateTime @default(now())
+
+  @@index([carId])
+  @@index([carId, visitorHash])
+}
+
+model Photo {
+  id       String @id @default(cuid())
+  carId    String
+  car      Car    @relation(fields: [carId], references: [id], onDelete: Cascade)
+  key      String
+  url      String
+  position Int    @default(0)
+}
+
+model Offer {
+  id        String   @id @default(cuid())
+  carId     String
+  car       Car      @relation(fields: [carId], references: [id], onDelete: Cascade)
+  buyerId   String
+  buyer     User     @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  amount    Int
+  message   String?
+  status    String   @default("PENDING") // PENDING | ACCEPTED | REJECTED | WITHDRAWN
+  createdAt DateTime @default(now())
+}
+
+// ---------- Scraping (OLX / Standvirtual / Piscapisca) ----------
+
+model ScrapedListing {
+  id          String   @id @default(cuid())
+  source      String // OLX | STANDVIRTUAL | PISCAPISCA
+  externalId  String // id do anúncio no site de origem
+  url         String // link para o anúncio original
+  title       String
+  brand       String?
+  model       String?
+  year        Int?
+  km          Int?
+  fuel        String?
+  gearbox     String?
+  power       Int? // cv
+  displacement Int? // cm3
+  price       Int? // EUR
+  location    String?
+  sellerType  String? // Particular | Profissional
+  sellerName  String?
+  imageUrls   String   @default("[]") // JSON array de URLs (hotlink CDN de origem)
+  active      Boolean  @default(true) // false = deixou de aparecer no site
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  @@unique([source, externalId])
+  @@index([source, active])
+  @@index([brand, model])
+  @@index([price])
+}
+
+// Estado/cursor do scraper (para retomar entre execuções — ex. cron da Vercel)
+model ScrapeState {
+  id        String   @id
+  data      String   @default("{}")
+  updatedAt DateTime @updatedAt
+}
+
+model Reminder {
+  id      String   @id @default(cuid())
+  carId   String
+  car     Car      @relation(fields: [carId], references: [id], onDelete: Cascade)
+  type    String // IPO | Manutenção | Seguro | IUC | Pneus | Outro
+  title   String
+  dueDate DateTime
+  notes   String?
+  done    Boolean  @default(false)
 }
