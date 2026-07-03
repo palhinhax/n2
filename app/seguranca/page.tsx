@@ -112,14 +112,13 @@ export default function Seguranca() {
             Viste um anúncio suspeito?
           </h2>
           <p className="mt-1 text-n2muted">
-            Usa o botão “Reportar anúncio” na página do carro, ou escreve-nos.
+            Usa o botão <b className="text-ink">“⚑ Reportar anúncio”</b> na
+            página do carro. A denúncia chega diretamente à nossa equipa, que a
+            analisa.
           </p>
-          <a
-            href="mailto:ajuda@nacional-2.pt?subject=Reportar%20anúncio%20suspeito"
-            className="btn-line btn-sm mt-3 inline-flex"
-          >
-            Contactar a equipa
-          </a>
+          <Link href="/carros" className="btn-clay btn-sm mt-3 inline-flex">
+            Ver anúncios
+          </Link>
         </div>
       </div>
       <SiteFooter />

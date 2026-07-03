@@ -3,6 +3,7 @@ import Image from "next/image";
 import { auth, signOut } from "@/lib/auth";
 import { priceAlertCount, savedSearchAlertCount } from "@/lib/favorites";
 import MobileNav from "@/components/mobile-nav";
+import HeaderSearch from "@/components/header-search";
 
 export default async function SiteHeader() {
   const session = await auth();
@@ -151,6 +152,13 @@ export default async function SiteHeader() {
               <span className="hidden sm:inline">+ Vender grátis</span>
             </Link>
             <MobileNav items={mobileItems} isLoggedIn={!!user} />
+          </div>
+        </div>
+        <div className="border-t border-outline/60">
+          <div className="mx-auto flex w-[min(1240px,94%)] justify-center py-2">
+            <div className="w-full max-w-2xl">
+              <HeaderSearch />
+            </div>
           </div>
         </div>
       </header>

@@ -47,6 +47,15 @@ export default async function Admin() {
   const sourceCounts: Record<string, number> = {};
   for (const row of bySource) sourceCounts[row.source] = row._count._all;
 
+  // tolera a ausência do modelo/tabela Report enquanto a migração não corre
+  let nNewReports = 0;
+  try {
+    nNewReports =
+      (await (prisma as any).report?.count({ where: { status: "NEW" } })) ?? 0;
+  } catch {
+    nNewReports = 0;
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-cream">
       <SiteHeader />
@@ -58,9 +67,17 @@ export default async function Admin() {
           Moderação e gestão
         </h1>
 
-        <div className="mb-6">
+        <div className="mb-6 flex flex-wrap gap-2">
           <Link href="/admin/financiamento" className="btn-line btn-sm">
             💶 Pedidos de financiamento →
+          </Link>
+          <Link href="/admin/reports" className="btn-line btn-sm">
+            ⚑ Denúncias
+            {nNewReports > 0 && (
+              <span className="ml-1 rounded-full bg-clay px-1.5 text-[0.72rem] font-bold text-white">
+                {nNewReports}
+              </span>
+            )}
           </Link>
         </div>
 

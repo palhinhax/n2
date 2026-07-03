@@ -23,6 +23,7 @@ export async function GET(req: Request) {
     lugares: p.get("lugares") ?? undefined,
     mensalMax: p.get("mensalMax") ?? undefined,
     distrito: p.get("distrito") ?? undefined,
+    q: p.get("q") ?? undefined,
   };
   const offset = Math.max(0, Number(p.get("offset") ?? 0) || 0);
   const limit = Math.min(48, Number(p.get("limit") ?? PAGE_SIZE) || PAGE_SIZE);

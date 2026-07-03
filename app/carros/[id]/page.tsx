@@ -330,15 +330,17 @@ export default async function CarDetail({
                 </div>
               </div>
               {car.status === "APPROVED" && (
-                <div className="mt-3 flex items-center justify-between gap-2 border-t border-outline pt-3">
+                <div className="mt-3 border-t border-outline pt-3">
                   <span className="inline-flex items-center gap-1 text-[0.76rem] font-semibold text-olive">
                     ✓ Anúncio moderado pela equipa
                   </span>
-                  <ReportButton
-                    kind="car"
-                    id={car.id}
-                    title={`${car.brand.name} ${car.model.name}`}
-                  />
+                  <div className="mt-2">
+                    <ReportButton
+                      kind="car"
+                      id={car.id}
+                      title={`${car.brand.name} ${car.model.name}`}
+                    />
+                  </div>
                 </div>
               )}
             </div>

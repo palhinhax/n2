@@ -15,6 +15,15 @@ export const FUELS = [
 export const EN2_KM = 739;
 export const ELECTRIFIED = ["Elétrico", "Híbrido Plug-In"];
 export const GEARS = ["Manual", "Automática"];
+export const REPORT_REASONS = [
+  "Preço falso ou enganador",
+  "Suspeita de fraude / burla",
+  "Já vendido ou indisponível",
+  "Informação incorreta",
+  "Conteúdo impróprio",
+  "Anúncio duplicado",
+  "Outro",
+];
 export const BODY_TYPES = [
   "Citadino",
   "Utilitário",

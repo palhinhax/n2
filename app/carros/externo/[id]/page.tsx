@@ -312,15 +312,17 @@ export default async function ExternalCarDetail({
                 origem e ao vendedor. O contacto e a negociação fazem-se no site
                 original.
               </p>
-              <div className="mt-3 flex items-center justify-between gap-2 border-t border-outline pt-3">
+              <div className="mt-3 border-t border-outline pt-3">
                 <span className="inline-flex items-center gap-1 text-[0.76rem] font-semibold text-olive">
                   ✓ Origem identificada: {sourceLabel}
                 </span>
-                <ReportButton
-                  kind="listing"
-                  id={listing.id}
-                  title={listing.title}
-                />
+                <div className="mt-2">
+                  <ReportButton
+                    kind="listing"
+                    id={listing.id}
+                    title={listing.title}
+                  />
+                </div>
               </div>
               {isAdmin && <RefreshDetailsButton id={listing.id} />}
             </div>

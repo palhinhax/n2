@@ -289,3 +289,19 @@ model FinanceLead {
 
   @@index([createdAt])
 }
+
+// Denúncia de um anúncio (vai para o painel de admin, não para email).
+model Report {
+  id           String   @id @default(cuid())
+  kind         String // car | listing
+  carId        String?
+  listingId    String?
+  vehicleTitle String?
+  reason       String // motivo (ver REPORT_REASONS)
+  note         String?
+  reporterId   String? // userId se autenticado
+  status       String   @default("NEW") // NEW | REVIEWED | DISMISSED
+  createdAt    DateTime @default(now())
+
+  @@index([status, createdAt])
+}

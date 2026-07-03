@@ -12,6 +12,7 @@ export interface ListingQuery {
   kmMax?: string;
   ordenar?: string;
   distrito?: string; // distrito/localização
+  q?: string; // pesquisa livre por texto (marca/modelo/título)
   // filtros avançados
   carroceria?: string; // tipo de carroçaria (só anúncios externos)
   cor?: string; // cor (só anúncios externos)
@@ -223,6 +224,24 @@ export function buildWheres(q: ListingQuery): { where: any; whereExt: any } {
   if (kmMax != null) where.km = { lte: kmMax };
   if (potMin != null) where.power = { gte: potMin };
   if (q.distrito) where.district = { equals: q.distrito, mode: "insensitive" };
+  // pesquisa livre por texto: cada palavra tem de aparecer na marca/modelo/versão
+  const qTokens = (q.q ?? "")
+    .trim()
+    .split(/\s+/)
+    .filter((t) => t.length >= 2)
+    .slice(0, 5);
+  if (qTokens.length) {
+    where.AND = [
+      ...(where.AND ?? []),
+      ...qTokens.map((t) => ({
+        OR: [
+          { brand: { name: { contains: t, mode: "insensitive" } } },
+          { model: { name: { contains: t, mode: "insensitive" } } },
+          { version: { contains: t, mode: "insensitive" } },
+        ],
+      })),
+    ];
+  }
 
   const whereExt: any = { active: true, isDuplicate: false };
   // marca com aliases: como o filtro de combustível também usa OR, juntamos
@@ -249,6 +268,18 @@ export function buildWheres(q: ListingQuery): { where: any; whereExt: any } {
   if (lugares != null) whereExt.seats = lugares;
   if (q.distrito)
     whereExt.location = { contains: q.distrito, mode: "insensitive" };
+  if (qTokens.length) {
+    whereExt.AND = [
+      ...(whereExt.AND ?? []),
+      ...qTokens.map((t) => ({
+        OR: [
+          { title: { contains: t, mode: "insensitive" } },
+          { brand: { contains: t, mode: "insensitive" } },
+          { model: { contains: t, mode: "insensitive" } },
+        ],
+      })),
+    ];
+  }
 
   // bloqueia preços absurdamente baixos (erros de parsing / peças). Deixa
   // passar os "sob consulta" (preço nulo).
