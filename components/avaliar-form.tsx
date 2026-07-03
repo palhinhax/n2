@@ -20,11 +20,25 @@ export default function AvaliarForm({
   const [loading, setLoading] = useState(false);
   const [res, setRes] = useState<any>(null);
   const [done, setDone] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   const brand = brands.find((b) => b.name === f.marca);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (!f.marca || !f.modelo) {
+      setErr("Escolhe a marca e o modelo para avaliar.");
+      return;
+    }
+    if (f.ano && (Number(f.ano) < 1950 || Number(f.ano) > 2026)) {
+      setErr("Indica um ano válido (entre 1950 e 2026).");
+      return;
+    }
+    if (f.km && Number(f.km) < 0) {
+      setErr("Os quilómetros não podem ser negativos.");
+      return;
+    }
+    setErr(null);
     setLoading(true);
     setDone(false);
     const p = new URLSearchParams();
@@ -98,6 +112,8 @@ export default function AvaliarForm({
             <input
               className="finput"
               type="number"
+              min={0}
+              step={1000}
               value={f.km}
               onChange={(e) => setF({ ...f, km: e.target.value })}
               placeholder="ex: 90000"
@@ -117,6 +133,11 @@ export default function AvaliarForm({
             </select>
           </div>
         </div>
+        {err && (
+          <p className="rounded-lg bg-clay/10 px-3 py-2 text-[0.85rem] font-semibold text-clay">
+            {err}
+          </p>
+        )}
         <button className="btn-clay" disabled={loading}>
           {loading ? "A avaliar…" : "Avaliar o meu carro"}
         </button>

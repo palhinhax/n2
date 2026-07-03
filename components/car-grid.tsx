@@ -21,15 +21,18 @@ export default function CarGrid({
     initialNextOffset
   );
   const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
   const sentinel = useRef<HTMLDivElement | null>(null);
 
   const loadMore = useCallback(async () => {
     if (loading || nextOffset == null) return;
     setLoading(true);
+    setFailed(false);
     try {
       const params = new URLSearchParams(query);
       params.set("offset", String(nextOffset));
       const res = await fetch(`/api/carros?${params.toString()}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setItems((prev) => {
         const seen = new Set(prev.map((i) => `${i.kind}-${i.id}`));
@@ -40,7 +43,8 @@ export default function CarGrid({
       });
       setNextOffset(data.nextOffset ?? null);
     } catch {
-      // silencioso — tenta de novo no próximo scroll
+      // falha (ex.: 503 intermitente da BD) — mostra botão de nova tentativa
+      setFailed(true);
     } finally {
       setLoading(false);
     }
@@ -48,7 +52,7 @@ export default function CarGrid({
 
   useEffect(() => {
     const el = sentinel.current;
-    if (!el) return;
+    if (!el || failed) return; // se falhou, espera ação manual
     const obs = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) loadMore();
@@ -57,7 +61,7 @@ export default function CarGrid({
     );
     obs.observe(el);
     return () => obs.disconnect();
-  }, [loadMore]);
+  }, [loadMore, failed]);
 
   if (items.length === 0) {
     return (
@@ -90,6 +94,16 @@ export default function CarGrid({
       {loading && (
         <div className="py-6 text-center text-[0.9rem] font-medium text-n2muted">
           A carregar mais anúncios…
+        </div>
+      )}
+      {failed && !loading && (
+        <div className="py-6 text-center">
+          <p className="mb-2 text-[0.9rem] font-medium text-n2muted">
+            Não foi possível carregar mais anúncios.
+          </p>
+          <button className="btn-line btn-sm" onClick={() => loadMore()}>
+            Tentar novamente
+          </button>
         </div>
       )}
       {nextOffset == null && items.length > 0 && (

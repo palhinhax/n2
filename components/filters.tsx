@@ -100,6 +100,8 @@ export default function Filters({
         <input
           id="f-precoMax"
           type="number"
+          min={0}
+          step={500}
           className="finput"
           placeholder="ex: 20000"
           defaultValue={sp.get("precoMax") || ""}
@@ -142,6 +144,8 @@ export default function Filters({
           <input
             id="f-anoMin"
             type="number"
+            min={1950}
+            max={new Date().getFullYear() + 1}
             className="finput"
             placeholder="2018"
             defaultValue={sp.get("anoMin") || ""}
@@ -153,6 +157,8 @@ export default function Filters({
           <input
             id="f-kmMax"
             type="number"
+            min={0}
+            step={1000}
             className="finput"
             placeholder="150000"
             defaultValue={sp.get("kmMax") || ""}

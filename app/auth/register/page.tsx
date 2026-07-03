@@ -22,13 +22,15 @@ import { Spinner } from "@/components/ui/spinner";
 
 const registerSchema = z
   .object({
-    name: z.string().min(2, "Name must be at least 2 characters"),
-    email: z.string().email("Invalid email address"),
-    password: z.string().min(8, "Password must be at least 8 characters"),
+    name: z.string().min(2, "O nome deve ter pelo menos 2 caracteres"),
+    email: z.string().email("Email inválido"),
+    password: z
+      .string()
+      .min(8, "A palavra-passe deve ter pelo menos 8 caracteres"),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords do not match",
+    message: "As palavras-passe não coincidem",
     path: ["confirmPassword"],
   });
 
@@ -64,7 +66,7 @@ export default function RegisterPage() {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || "Registration failed");
+        throw new Error(error.message || "Não foi possível criar a conta");
       }
 
       // Auto sign in after registration
@@ -81,7 +83,11 @@ export default function RegisterPage() {
         router.refresh();
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Registration failed");
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível criar a conta"
+      );
     } finally {
       setIsLoading(false);
     }
@@ -117,10 +123,10 @@ export default function RegisterPage() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">Nome</Label>
               <Input
                 id="name"
-                placeholder="John Doe"
+                placeholder="ex: João Silva"
                 {...register("name")}
                 aria-invalid={!!errors.name}
               />
@@ -135,7 +141,7 @@ export default function RegisterPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="john@example.com"
+                placeholder="o.teu@email.pt"
                 {...register("email")}
                 aria-invalid={!!errors.email}
               />
@@ -146,7 +152,7 @@ export default function RegisterPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Palavra-passe</Label>
               <Input
                 id="password"
                 type="password"
@@ -161,7 +167,7 @@ export default function RegisterPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Label htmlFor="confirmPassword">Confirmar palavra-passe</Label>
               <Input
                 id="confirmPassword"
                 type="password"

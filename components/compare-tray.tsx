@@ -12,11 +12,17 @@ export default function CompareTray() {
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-outline bg-white/95 backdrop-blur">
-      <div className="mx-auto flex w-[min(1240px,94%)] items-center gap-3 py-2.5">
-        <span className="text-[0.9rem] font-semibold text-ink">
-          {keys.length} {keys.length === 1 ? "carro" : "carros"} para comparar
+      <div className="mx-auto flex w-[min(1240px,94%)] items-center gap-2 py-2 sm:gap-3 sm:py-2.5">
+        <span className="text-[0.85rem] font-semibold text-ink sm:text-[0.9rem]">
+          {keys.length}{" "}
+          <span className="hidden sm:inline">
+            {keys.length === 1 ? "carro" : "carros"} para comparar
+          </span>
+          <span className="sm:hidden">
+            {keys.length === 1 ? "carro" : "carros"}
+          </span>
         </span>
-        <span className="text-[0.8rem] text-n2muted2">
+        <span className="hidden text-[0.8rem] text-n2muted2 sm:inline">
           (podes escolher até 3)
         </span>
         <div className="ml-auto flex items-center gap-2">
@@ -28,8 +34,11 @@ export default function CompareTray() {
               Comparar →
             </Link>
           ) : (
-            <span className="text-[0.8rem] font-medium text-n2muted">
-              Escolhe mais um para comparar
+            <span className="text-[0.78rem] font-medium text-n2muted">
+              <span className="hidden sm:inline">
+                Escolhe mais um para comparar
+              </span>
+              <span className="sm:hidden">Falta +1</span>
             </span>
           )}
         </div>

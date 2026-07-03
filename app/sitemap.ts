@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
 import { SITE_URL } from "@/lib/seo";
+import { MIN_LISTING_PRICE } from "@/lib/car-listing";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 86400; // 1 dia
@@ -39,7 +40,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         take: MAX_CARS,
       }),
       prisma.scrapedListing.findMany({
-        where: { active: true, isDuplicate: false },
+        where: {
+          active: true,
+          isDuplicate: false,
+          OR: [{ price: null }, { price: { gte: MIN_LISTING_PRICE } }],
+        },
         select: { id: true, lastSeenAt: true },
         orderBy: { lastSeenAt: "desc" },
         take: MAX_LISTINGS,

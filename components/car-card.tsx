@@ -10,6 +10,7 @@ export default function CarCard({ car }: { car: any }) {
   return (
     <Link
       href={`/carros/${car.id}`}
+      prefetch={false}
       className="n2-card flex flex-col overflow-hidden transition hover:-translate-y-1 hover:shadow-warmlg"
     >
       <div className="relative flex aspect-[16/10] items-center justify-center bg-gradient-to-b from-[#FCF4E2] to-[#F4E2BC]">

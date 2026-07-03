@@ -20,6 +20,26 @@ export interface ListingPage {
   nextOffset: number | null;
 }
 
+// Preço mínimo plausível para um carro. Abaixo disto quase de certeza é erro
+// de parsing do site de origem (ex.: 56 €), anúncio de peças/acessórios, ou
+// valor de entrada de leasing — não um carro à venda. Bloqueamos na listagem
+// e na página de detalhe.
+export const MIN_LISTING_PRICE = 300;
+
+const CURRENT_YEAR = new Date().getFullYear();
+// Sanitização de números vindos da query — valores inválidos são ignorados
+// (não filtram nada) em vez de partir a pesquisa.
+const posInt = (v?: string): number | null => {
+  if (v == null || v === "") return null;
+  const n = Math.floor(Number(v));
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
+const validYear = (v?: string): number | null => {
+  const n = posInt(v);
+  if (n == null) return null;
+  return n >= 1950 && n <= CURRENT_YEAR + 1 ? n : null;
+};
+
 const BRAND_ALIASES: Record<string, string[]> = {
   volkswagen: ["Volkswagen", "VW"],
   vw: ["Volkswagen", "VW"],
@@ -164,15 +184,19 @@ export async function fetchBrandOptions(opts: { electric?: boolean } = {}) {
 
 /** Constrói os filtros Prisma (carros do site + externos) a partir da query. */
 export function buildWheres(q: ListingQuery): { where: any; whereExt: any } {
+  const precoMax = posInt(q.precoMax);
+  const anoMin = validYear(q.anoMin);
+  const kmMax = posInt(q.kmMax);
+
   const where: any = { forSale: true, status: "APPROVED" };
   if (q.marca) where.brand = { name: { in: aliasesFor(q.marca) } };
   if (q.modelo)
     where.model = { name: { equals: q.modelo, mode: "insensitive" } };
-  if (q.precoMax) where.price = { lte: +q.precoMax };
+  if (precoMax != null) where.price = { lte: precoMax };
   if (q.fuel) applyFuel(where, q.fuel);
   if (q.caixa) where.gearbox = q.caixa;
-  if (q.anoMin) where.year = { gte: +q.anoMin };
-  if (q.kmMax) where.km = { lte: +q.kmMax };
+  if (anoMin != null) where.year = { gte: anoMin };
+  if (kmMax != null) where.km = { lte: kmMax };
 
   const whereExt: any = { active: true, isDuplicate: false };
   // marca com aliases: como o filtro de combustível também usa OR, juntamos
@@ -187,11 +211,18 @@ export function buildWheres(q: ListingQuery): { where: any; whereExt: any } {
     ];
   }
   if (q.modelo) whereExt.model = { contains: q.modelo, mode: "insensitive" };
-  if (q.precoMax) whereExt.price = { lte: +q.precoMax };
+  if (precoMax != null) whereExt.price = { lte: precoMax };
   if (q.fuel) applyFuel(whereExt, q.fuel);
   if (q.caixa) whereExt.gearbox = q.caixa;
-  if (q.anoMin) whereExt.year = { gte: +q.anoMin };
-  if (q.kmMax) whereExt.km = { lte: +q.kmMax };
+  if (anoMin != null) whereExt.year = { gte: anoMin };
+  if (kmMax != null) whereExt.km = { lte: kmMax };
+
+  // bloqueia preços absurdamente baixos (erros de parsing / peças). Deixa
+  // passar os "sob consulta" (preço nulo).
+  whereExt.AND = [
+    ...(whereExt.AND ?? []),
+    { OR: [{ price: null }, { price: { gte: MIN_LISTING_PRICE } }] },
+  ];
 
   return { where, whereExt };
 }

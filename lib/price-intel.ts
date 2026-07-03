@@ -39,6 +39,16 @@ function percentile(sorted: number[], p: number): number {
 
 const MIN_SAMPLE = 5;
 
+// Marcas com nomes alternativos entre sites (ex.: Standvirtual usa "VW").
+const BRAND_ALIASES: Record<string, string[]> = {
+  volkswagen: ["Volkswagen", "VW"],
+  vw: ["Volkswagen", "VW"],
+  "mercedes-benz": ["Mercedes-Benz", "Mercedes"],
+  mercedes: ["Mercedes-Benz", "Mercedes"],
+};
+const brandAliases = (name: string) =>
+  BRAND_ALIASES[name.toLowerCase()] ?? [name];
+
 /** Estatísticas de mercado para um carro (marca+modelo+ano ±1). */
 export async function marketStats(opts: {
   brand?: string | null;
@@ -57,7 +67,9 @@ export async function marketStats(opts: {
       active: true,
       isDuplicate: false,
       price: { gt: 100 },
-      brand: { equals: brand, mode: "insensitive" },
+      OR: brandAliases(brand).map((a) => ({
+        brand: { equals: a, mode: "insensitive" as const },
+      })),
       model: { contains: model, mode: "insensitive" },
       ...(yearWhere ? { year: yearWhere } : {}),
     },

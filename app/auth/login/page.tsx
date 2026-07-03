@@ -21,8 +21,8 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 
 const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(1, "Password is required"),
+  email: z.string().email("Email inválido"),
+  password: z.string().min(1, "Indica a palavra-passe"),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -52,13 +52,13 @@ export default function LoginPage() {
       });
 
       if (result?.error) {
-        setError("Invalid email or password");
+        setError("Email ou palavra-passe incorretos");
       } else {
         router.push("/garagem");
         router.refresh();
       }
     } catch {
-      setError("An unexpected error occurred");
+      setError("Ocorreu um erro inesperado. Tenta novamente.");
     } finally {
       setIsLoading(false);
     }
@@ -98,7 +98,7 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="demo@example.com"
+                placeholder="o.teu@email.pt"
                 {...register("email")}
                 aria-invalid={!!errors.email}
               />
@@ -109,7 +109,7 @@ export default function LoginPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Palavra-passe</Label>
               <Input
                 id="password"
                 type="password"

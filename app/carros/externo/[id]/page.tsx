@@ -8,6 +8,7 @@ import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import { fmtEur } from "@/lib/constants";
 import { SOURCE_LABEL } from "@/components/external-car-card";
+import { MIN_LISTING_PRICE } from "@/lib/car-listing";
 import ExternalGallery from "@/components/external-gallery";
 import FavoriteButton from "@/components/favorite-button";
 import TrackView from "@/components/track-view";
@@ -27,7 +28,8 @@ export async function generateMetadata({
   const l = await prisma.scrapedListing.findUnique({
     where: { id: params.id },
   });
-  if (!l || !l.active) return { title: "Anúncio", robots: { index: false } };
+  if (!l || !l.active || (l.price != null && l.price < MIN_LISTING_PRICE))
+    return { title: "Anúncio", robots: { index: false } };
   const title = `${l.title}${l.year ? ` (${l.year})` : ""} — ${eur(l.price)}`;
   const description = clamp(
     `${l.title}${l.year ? `, ${l.year}` : ""}${l.km != null ? `, ${l.km.toLocaleString("pt-PT")} km` : ""}` +
@@ -64,6 +66,8 @@ export default async function ExternalCarDetail({
     where: { id: params.id },
   });
   if (!listing) notFound();
+  // preço inválido (ex.: 56 €) — não é um carro real; escondemos a página.
+  if (listing.price != null && listing.price < MIN_LISTING_PRICE) notFound();
 
   const session = await auth();
   const isAdmin = (session?.user as any)?.role === "ADMIN";
@@ -104,7 +108,12 @@ export default async function ExternalCarDetail({
     ["Potência", listing.power != null ? `${listing.power} cv` : null],
     [
       "Cilindrada",
-      listing.displacement != null ? `${listing.displacement} cm³` : null,
+      // esconde valores implausíveis (erro de parsing, ex.: 21483 cm³)
+      listing.displacement != null &&
+      listing.displacement >= 600 &&
+      listing.displacement <= 9000
+        ? `${listing.displacement} cm³`
+        : null,
     ],
     ["Tracção", listing.drivetrain],
     ["Carroçaria", listing.bodyType],

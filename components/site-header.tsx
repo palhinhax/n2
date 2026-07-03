@@ -2,12 +2,31 @@ import Link from "next/link";
 import Image from "next/image";
 import { auth, signOut } from "@/lib/auth";
 import { priceAlertCount, savedSearchAlertCount } from "@/lib/favorites";
+import MobileNav from "@/components/mobile-nav";
 
 export default async function SiteHeader() {
   const session = await auth();
   const user = session?.user as any;
   const alerts = user?.id ? await priceAlertCount(user.id) : 0;
   const searchAlerts = user?.id ? await savedSearchAlertCount(user.id) : 0;
+
+  const mobileItems = [
+    { href: "/carros", label: "Carros" },
+    { href: "/eletricos", label: "Elétricos" },
+    { href: "/avaliar", label: "Avaliar carro" },
+    ...(user
+      ? [
+          { href: "/garagem", label: "A minha garagem" },
+          { href: "/favoritos", label: "Favoritos", badge: alerts },
+          { href: "/pesquisas", label: "Pesquisas", badge: searchAlerts },
+          { href: "/conta", label: "A minha conta" },
+        ]
+      : []),
+    ...(user?.role === "ADMIN"
+      ? [{ href: "/admin", label: "Admin", accent: true }]
+      : []),
+  ];
+
   return (
     <>
       <div className="bg-ink py-1 text-center text-[0.82rem] text-[#D9CBAE]">
@@ -15,8 +34,8 @@ export default async function SiteHeader() {
         para sempre.
       </div>
       <header className="sticky top-0 z-50 border-b border-outline bg-white/90 backdrop-blur">
-        <div className="mx-auto flex w-[min(1240px,94%)] items-center gap-4 py-2">
-          <Link href="/" className="flex items-center gap-2">
+        <div className="mx-auto flex w-[min(1240px,94%)] items-center gap-2 py-2 md:gap-4">
+          <Link href="/" className="flex shrink-0 items-center gap-2">
             <Image
               src="/brand/nacional2-logo.png"
               alt="Nacional 2"
@@ -24,7 +43,7 @@ export default async function SiteHeader() {
               height={34}
               className="rounded-md"
             />
-            <span className="font-head text-[1.3rem] font-extrabold leading-none text-ink">
+            <span className="whitespace-nowrap font-head text-[1.1rem] font-extrabold leading-none text-ink sm:text-[1.3rem]">
               NACIONAL 2
             </span>
           </Link>
@@ -100,6 +119,7 @@ export default async function SiteHeader() {
                   Olá, {user.name?.split(" ")[0]}
                 </Link>
                 <form
+                  className="hidden md:block"
                   action={async () => {
                     "use server";
                     await signOut({ redirectTo: "/" });
@@ -109,13 +129,21 @@ export default async function SiteHeader() {
                 </form>
               </>
             ) : (
-              <Link href="/auth/login" className="btn-line btn-xs">
+              <Link
+                href="/auth/login"
+                className="btn-line btn-xs hidden md:inline-flex"
+              >
                 Entrar
               </Link>
             )}
-            <Link href="/garagem/novo" className="btn-clay btn-xs">
-              + Vender grátis
+            <Link
+              href="/garagem/novo"
+              className="btn-clay btn-xs whitespace-nowrap"
+            >
+              <span className="sm:hidden">+ Vender</span>
+              <span className="hidden sm:inline">+ Vender grátis</span>
             </Link>
+            <MobileNav items={mobileItems} isLoggedIn={!!user} />
           </div>
         </div>
       </header>

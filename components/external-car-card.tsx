@@ -23,6 +23,7 @@ export default function ExternalCarCard({ listing }: { listing: any }) {
   return (
     <Link
       href={`/carros/externo/${listing.id}`}
+      prefetch={false}
       className="n2-card flex flex-col overflow-hidden transition hover:-translate-y-1 hover:shadow-warmlg"
     >
       <div className="relative aspect-[16/10] overflow-hidden bg-gradient-to-b from-[#FCF4E2] to-[#F4E2BC]">
