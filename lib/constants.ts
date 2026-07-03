@@ -15,6 +15,30 @@ export const FUELS = [
 export const EN2_KM = 739;
 export const ELECTRIFIED = ["Elétrico", "Híbrido Plug-In"];
 export const GEARS = ["Manual", "Automática"];
+export const BODY_TYPES = [
+  "Citadino",
+  "Utilitário",
+  "Berlina",
+  "Carrinha",
+  "SUV / TT",
+  "Monovolume",
+  "Coupé",
+  "Cabrio",
+  "Pick-up",
+];
+export const CAR_COLOR_NAMES = [
+  "Branco",
+  "Preto",
+  "Cinzento",
+  "Prateado",
+  "Azul",
+  "Vermelho",
+  "Verde",
+  "Castanho",
+  "Bege",
+  "Amarelo",
+  "Laranja",
+];
 export const REMINDER_TYPES = [
   "IPO",
   "Manutenção",

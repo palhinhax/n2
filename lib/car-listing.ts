@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { maxPriceForMonthly } from "@/lib/finance";
+import { marketStatsBatch, mkKey, ratePrice } from "@/lib/price-intel";
 
 export interface ListingQuery {
   marca?: string;
@@ -9,6 +11,12 @@ export interface ListingQuery {
   anoMin?: string;
   kmMax?: string;
   ordenar?: string;
+  // filtros avançados
+  carroceria?: string; // tipo de carroçaria (só anúncios externos)
+  cor?: string; // cor (só anúncios externos)
+  potMin?: string; // potência mínima (cv)
+  lugares?: string; // nº de lugares (só anúncios externos)
+  mensalMax?: string; // mensalidade máxima (€/mês)
 }
 
 export type ListingItem =
@@ -184,11 +192,26 @@ export async function fetchBrandOptions(opts: { electric?: boolean } = {}) {
 
 /** Constrói os filtros Prisma (carros do site + externos) a partir da query. */
 export function buildWheres(q: ListingQuery): { where: any; whereExt: any } {
-  const precoMax = posInt(q.precoMax);
   const anoMin = validYear(q.anoMin);
   const kmMax = posInt(q.kmMax);
+  const potMin = posInt(q.potMin);
+  const lugares = posInt(q.lugares);
+
+  // teto de preço: menor entre "preço até" e o equivalente a "mensalidade até"
+  const precoMaxRaw = posInt(q.precoMax);
+  const mensalMax = posInt(q.mensalMax);
+  const priceCeils = [
+    precoMaxRaw,
+    mensalMax ? maxPriceForMonthly(mensalMax) : null,
+  ].filter((n): n is number => n != null);
+  const precoMax = priceCeils.length ? Math.min(...priceCeils) : null;
+
+  // filtros que só existem nos anúncios externos — quando ativos, escondemos
+  // os carros do site (não têm esses campos).
+  const externalOnly = !!(q.carroceria || q.cor || lugares != null);
 
   const where: any = { forSale: true, status: "APPROVED" };
+  if (externalOnly) where.id = "__hide_site_cars__";
   if (q.marca) where.brand = { name: { in: aliasesFor(q.marca) } };
   if (q.modelo)
     where.model = { name: { equals: q.modelo, mode: "insensitive" } };
@@ -197,6 +220,7 @@ export function buildWheres(q: ListingQuery): { where: any; whereExt: any } {
   if (q.caixa) where.gearbox = q.caixa;
   if (anoMin != null) where.year = { gte: anoMin };
   if (kmMax != null) where.km = { lte: kmMax };
+  if (potMin != null) where.power = { gte: potMin };
 
   const whereExt: any = { active: true, isDuplicate: false };
   // marca com aliases: como o filtro de combustível também usa OR, juntamos
@@ -216,6 +240,11 @@ export function buildWheres(q: ListingQuery): { where: any; whereExt: any } {
   if (q.caixa) whereExt.gearbox = q.caixa;
   if (anoMin != null) whereExt.year = { gte: anoMin };
   if (kmMax != null) whereExt.km = { lte: kmMax };
+  if (potMin != null) whereExt.power = { gte: potMin };
+  if (q.carroceria)
+    whereExt.bodyType = { contains: q.carroceria, mode: "insensitive" };
+  if (q.cor) whereExt.color = { contains: q.cor, mode: "insensitive" };
+  if (lugares != null) whereExt.seats = lugares;
 
   // bloqueia preços absurdamente baixos (erros de parsing / peças). Deixa
   // passar os "sob consulta" (preço nulo).
@@ -322,6 +351,30 @@ export async function fetchListingPage(
   const pageItems = merged
     .slice(offset, offset + limit)
     .map(({ kind, id, data }) => ({ kind, id, data })) as ListingItem[];
+
+  // classificação de preço (barato/justo/caro) para cada cartão — 1 query
+  try {
+    const keyOf = (it: ListingItem) =>
+      it.kind === "car"
+        ? { brand: it.data.brand?.name, model: it.data.model?.name }
+        : { brand: it.data.brand, model: it.data.model };
+    const keys = pageItems
+      .map(keyOf)
+      .filter(
+        (k): k is { brand: string; model: string } => !!k.brand && !!k.model
+      );
+    if (keys.length) {
+      const statsMap = await marketStatsBatch(keys);
+      for (const it of pageItems) {
+        const k = keyOf(it);
+        const stats =
+          k.brand && k.model ? statsMap.get(mkKey(k.brand, k.model)) : null;
+        it.data._rating = ratePrice(it.data.price ?? null, stats ?? null);
+      }
+    }
+  } catch {
+    // se falhar, os cartões simplesmente não mostram a classificação
+  }
 
   // há mais? se alguma fonte devolveu o máximo pedido, há provavelmente mais
   const maybeMore =

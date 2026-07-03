@@ -239,6 +239,10 @@ model ScrapedListing {
   dedupeKey   String? // brand|model|year|km normalizado
   isDuplicate Boolean @default(false) // true = cópia escondida da listagem
 
+  // histórico de preço (descida) — preenchido quando o scraper deteta mudança
+  previousPrice  Int?
+  priceChangedAt DateTime?
+
   favorites Favorite[]
 
   @@unique([source, externalId])
@@ -265,4 +269,23 @@ model Reminder {
   dueDate DateTime
   notes   String?
   done    Boolean  @default(false)
+}
+
+// Pedido de proposta de financiamento (lead) submetido a partir de um anúncio.
+model FinanceLead {
+  id              String   @id @default(cuid())
+  name            String
+  email           String
+  phone           String?
+  carId           String? // anúncio do site
+  listingId       String? // anúncio externo
+  vehicleTitle    String?
+  price           Int
+  downPayment     Int
+  months          Int
+  monthlyEstimate Int
+  status          String   @default("NEW") // NEW | CONTACTED | CLOSED
+  createdAt       DateTime @default(now())
+
+  @@index([createdAt])
 }

@@ -3,6 +3,7 @@ import CarArt from "@/components/car-art";
 import FuelBadge from "@/components/fuel-badge";
 import FavoriteButton from "@/components/favorite-button";
 import CompareButton from "@/components/compare-button";
+import PriceRatingPill from "@/components/price-rating-pill";
 import { fmtEur, monthly } from "@/lib/constants";
 
 export default function CarCard({ car }: { car: any }) {
@@ -47,17 +48,22 @@ export default function CarCard({ car }: { car: any }) {
             </span>
           ) : null}
         </div>
-        <div className="mt-auto flex items-end justify-between border-t border-outline pt-2">
-          <span className="font-head text-[1.35rem] font-extrabold text-ink">
-            {fmtEur(car.price)}
-          </span>
-          {car.price ? (
-            <span className="text-right text-[0.72rem] font-semibold text-n2muted">
-              desde
-              <br />
-              <b className="text-bark">{monthly(car.price)} €/mês</b>
+        <div className="mt-auto border-t border-outline pt-2">
+          <div className="flex items-end justify-between">
+            <span className="font-head text-[1.35rem] font-extrabold text-ink">
+              {fmtEur(car.price)}
             </span>
-          ) : null}
+            {car.price ? (
+              <span className="text-right text-[0.72rem] font-semibold text-n2muted">
+                desde
+                <br />
+                <b className="text-bark">{monthly(car.price)} €/mês</b>
+              </span>
+            ) : null}
+          </div>
+          {car._rating && (
+            <PriceRatingPill rating={car._rating} className="mt-1.5" />
+          )}
         </div>
         <div className="flex justify-between text-[0.74rem] font-medium text-n2muted2">
           <span>

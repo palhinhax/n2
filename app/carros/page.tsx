@@ -59,6 +59,11 @@ export default async function Carros({
     "anoMin",
     "kmMax",
     "ordenar",
+    "carroceria",
+    "cor",
+    "potMin",
+    "lugares",
+    "mensalMax",
   ]) {
     const v = searchParams[k];
     if (v) query[k] = v;

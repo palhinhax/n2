@@ -58,6 +58,12 @@ export default async function Admin() {
           Moderação e gestão
         </h1>
 
+        <div className="mb-6">
+          <Link href="/admin/financiamento" className="btn-line btn-sm">
+            💶 Pedidos de financiamento →
+          </Link>
+        </div>
+
         <div className="mb-7 grid grid-cols-2 gap-3 md:grid-cols-4">
           {[
             ["Utilizadores", nUsers],

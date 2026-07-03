@@ -17,6 +17,7 @@ import JsonLd from "@/components/json-ld";
 import { absolute, clamp, eur, SITE_NAME } from "@/lib/seo";
 import PriceBadge from "@/components/price-badge";
 import { marketStats, ratePrice } from "@/lib/price-intel";
+import FinanceSimulator from "@/components/finance-simulator";
 
 export const dynamic = "force-dynamic";
 
@@ -247,10 +248,31 @@ export default async function ExternalCarDetail({
               <h1 className="mt-2 font-head text-[1.5rem] font-extrabold leading-tight text-ink">
                 {listing.title}
               </h1>
-              <div className="mt-2 font-head text-[2rem] font-extrabold text-ink">
-                {listing.price != null ? fmtEur(listing.price) : "Sob consulta"}
+              <div className="mt-2 flex items-end gap-2">
+                <span className="font-head text-[2rem] font-extrabold text-ink">
+                  {listing.price != null
+                    ? fmtEur(listing.price)
+                    : "Sob consulta"}
+                </span>
+                {listing.previousPrice != null &&
+                  listing.price != null &&
+                  listing.previousPrice > listing.price && (
+                    <span className="pb-1.5 text-[0.9rem] font-semibold text-n2muted line-through">
+                      {fmtEur(listing.previousPrice)}
+                    </span>
+                  )}
               </div>
-              <PriceBadge rating={rating} stats={stats} />
+              {listing.previousPrice != null &&
+                listing.price != null &&
+                listing.previousPrice > listing.price && (
+                  <span className="mt-1 inline-block rounded-full bg-olive/15 px-2.5 py-0.5 text-[0.8rem] font-bold text-olive">
+                    ↓ Desceu {fmtEur(listing.previousPrice - listing.price)}
+                    {listing.priceChangedAt
+                      ? ` em ${listing.priceChangedAt.toLocaleDateString("pt-PT")}`
+                      : ""}
+                  </span>
+                )}
+              <PriceBadge rating={rating} stats={stats} price={listing.price} />
               <div className="mt-3">
                 <FavoriteButton
                   kind="listing"
@@ -273,6 +295,14 @@ export default async function ExternalCarDetail({
               </p>
               {isAdmin && <RefreshDetailsButton id={listing.id} />}
             </div>
+
+            {listing.price != null && (
+              <FinanceSimulator
+                price={listing.price}
+                listingId={listing.id}
+                vehicleTitle={listing.title}
+              />
+            )}
 
             <div className="n2-card p-5">
               <h2 className="mb-3 font-head text-[1.05rem] font-bold text-ink">

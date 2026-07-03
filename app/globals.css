@@ -101,3 +101,42 @@
     @apply cursor-pointer rounded-full border border-outline2 bg-white px-3 py-1 font-head text-[0.85rem] font-bold text-ink transition hover:border-clay;
   }
 }
+
+/* ═══════ Slider moderno (financiamento, calculadora) ═══════ */
+.n2-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: #ece0c6;
+  outline: none;
+  cursor: pointer;
+}
+.n2-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: #b4552d;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 6px rgba(42, 33, 26, 0.28);
+  transition: transform 0.1s ease;
+}
+.n2-range::-webkit-slider-thumb:hover {
+  transform: scale(1.12);
+}
+.n2-range::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: #b4552d;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 6px rgba(42, 33, 26, 0.28);
+}
+.n2-range::-moz-range-progress {
+  background: #b4552d;
+  height: 8px;
+  border-radius: 999px;
+}

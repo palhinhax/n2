@@ -15,7 +15,7 @@ export async function upsertListing(
     // não bloqueia o scraping se falhar o registo da marca
   }
 
-  const data = {
+  const data: Record<string, unknown> = {
     url: l.url,
     title: l.title,
     brand: l.brand ?? null,
@@ -40,10 +40,20 @@ export async function upsertListing(
     where: {
       source_externalId: { source: l.source, externalId: l.externalId },
     },
-    select: { id: true },
+    select: { id: true, price: true },
   });
 
   if (existing) {
+    // deteta descida/subida de preço para o histórico
+    const newPrice = l.price ?? null;
+    if (
+      existing.price != null &&
+      newPrice != null &&
+      existing.price !== newPrice
+    ) {
+      data.previousPrice = existing.price;
+      data.priceChangedAt = now;
+    }
     await prisma.scrapedListing.update({ where: { id: existing.id }, data });
     return "updated";
   }

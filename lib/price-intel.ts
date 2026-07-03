@@ -94,6 +94,72 @@ export async function marketStats(opts: {
   };
 }
 
+/** Chave normalizada para agrupar por marca+modelo. */
+export const mkKey = (brand?: string | null, model?: string | null) =>
+  `${(brand ?? "").trim().toLowerCase()}|${(model ?? "").trim().toLowerCase()}`;
+
+/**
+ * Estatísticas de mercado para VÁRIOS carros de uma vez (marca+modelo), com
+ * UMA única query — usado para classificar os cartões da listagem sem N
+ * pedidos à BD.
+ */
+export async function marketStatsBatch(
+  keys: { brand: string; model: string }[]
+): Promise<Map<string, MarketStats>> {
+  const uniq = new Map<string, { brand: string; model: string }>();
+  for (const k of keys) {
+    const b = k.brand?.trim();
+    const m = k.model?.trim();
+    if (b && m) uniq.set(mkKey(b, m), { brand: b, model: m });
+  }
+  const out = new Map<string, MarketStats>();
+  if (uniq.size === 0) return out;
+
+  const conditions = Array.from(uniq.values()).map((k) => ({
+    OR: brandAliases(k.brand).map((a) => ({
+      brand: { equals: a, mode: "insensitive" as const },
+    })),
+    model: { contains: k.model, mode: "insensitive" as const },
+  }));
+
+  const rows = await prisma.scrapedListing.findMany({
+    where: {
+      active: true,
+      isDuplicate: false,
+      price: { gt: 100 },
+      OR: conditions,
+    },
+    select: { brand: true, model: true, price: true },
+    take: 8000,
+  });
+
+  for (const [key, k] of uniq) {
+    const aliases = brandAliases(k.brand).map((a) => a.toLowerCase());
+    const ml = k.model.toLowerCase();
+    const prices = rows
+      .filter(
+        (r) =>
+          r.price != null &&
+          r.price > 100 &&
+          r.brand != null &&
+          aliases.includes(r.brand.toLowerCase()) &&
+          (r.model ?? "").toLowerCase().includes(ml)
+      )
+      .map((r) => r.price as number)
+      .sort((a, b) => a - b);
+    if (prices.length < MIN_SAMPLE) continue;
+    out.set(key, {
+      count: prices.length,
+      median: Math.round(percentile(prices, 0.5)),
+      p25: Math.round(percentile(prices, 0.25)),
+      p75: Math.round(percentile(prices, 0.75)),
+      min: prices[0],
+      max: prices[prices.length - 1],
+    });
+  }
+  return out;
+}
+
 /** Classifica um preço face à mediana de mercado. */
 export function ratePrice(
   price: number | null | undefined,

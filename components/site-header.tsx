@@ -14,6 +14,7 @@ export default async function SiteHeader() {
     { href: "/carros", label: "Carros" },
     { href: "/eletricos", label: "Elétricos" },
     { href: "/avaliar", label: "Avaliar carro" },
+    { href: "/calcular-isv", label: "Calcular ISV" },
     ...(user
       ? [
           { href: "/garagem", label: "A minha garagem" },
@@ -65,6 +66,12 @@ export default async function SiteHeader() {
               className="rounded-full px-3 py-1.5 text-[0.95rem] font-semibold text-n2muted hover:bg-cream hover:text-ink"
             >
               Avaliar carro
+            </Link>
+            <Link
+              href="/calcular-isv"
+              className="rounded-full px-3 py-1.5 text-[0.95rem] font-semibold text-n2muted hover:bg-cream hover:text-ink"
+            >
+              Calcular ISV
             </Link>
             {user && (
               <Link

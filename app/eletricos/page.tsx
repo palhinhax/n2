@@ -43,6 +43,11 @@ export default async function Eletricos({
     "anoMin",
     "kmMax",
     "ordenar",
+    "carroceria",
+    "cor",
+    "potMin",
+    "lugares",
+    "mensalMax",
   ]) {
     const v = searchParams[k];
     if (v) query[k] = v;

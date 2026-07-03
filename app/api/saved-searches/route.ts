@@ -13,6 +13,11 @@ const KEYS = [
   "caixa",
   "anoMin",
   "kmMax",
+  "carroceria",
+  "cor",
+  "potMin",
+  "lugares",
+  "mensalMax",
 ];
 
 function labelFor(q: Record<string, string>): string {

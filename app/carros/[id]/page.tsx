@@ -11,12 +11,13 @@ import OfferPanel from "@/components/offer-panel";
 import FavoriteButton from "@/components/favorite-button";
 import TrackView from "@/components/track-view";
 import AdminActions from "@/components/admin-actions";
-import { fmtEur, monthly } from "@/lib/constants";
+import { fmtEur } from "@/lib/constants";
 import type { Metadata } from "next";
 import JsonLd from "@/components/json-ld";
 import { absolute, clamp, eur, SITE_NAME } from "@/lib/seo";
 import PriceBadge from "@/components/price-badge";
 import { marketStats, ratePrice } from "@/lib/price-intel";
+import FinanceSimulator from "@/components/finance-simulator";
 
 export const dynamic = "force-dynamic";
 
@@ -288,7 +289,7 @@ export default async function CarDetail({
               <div className="text-[0.8rem] font-semibold text-n2muted2">
                 {car.negotiable ? "✓ Aceita ofertas" : "Preço fixo"}
               </div>
-              <PriceBadge rating={rating} stats={stats} />
+              <PriceBadge rating={rating} stats={stats} price={car.price} />
               <div className="mt-3">
                 <FavoriteButton
                   kind="car"
@@ -297,14 +298,6 @@ export default async function CarDetail({
                   count={car._count.favorites}
                 />
               </div>
-              {car.price ? (
-                <div className="my-3 flex items-center justify-between rounded-xl border border-dashed border-outline2 bg-cream px-3 py-2 text-[0.9rem] font-semibold text-ink">
-                  <span>Financiamento desde</span>
-                  <b className="font-head text-[1.2rem]">
-                    {monthly(car.price)} €/mês
-                  </b>
-                </div>
-              ) : null}
               <div className="mt-1 border-t border-outline pt-3">
                 <OfferPanel
                   carId={car.id}
@@ -328,6 +321,13 @@ export default async function CarDetail({
                 </div>
               </div>
             </div>
+            {car.price ? (
+              <FinanceSimulator
+                price={car.price}
+                carId={car.id}
+                vehicleTitle={`${car.brand.name} ${car.model.name}`}
+              />
+            ) : null}
             <AdSlot index={3} />
           </aside>
         </div>

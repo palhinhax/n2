@@ -26,6 +26,11 @@ export default function SaveSearchButton() {
       "caixa",
       "anoMin",
       "kmMax",
+      "carroceria",
+      "cor",
+      "potMin",
+      "lugares",
+      "mensalMax",
     ]) {
       const v = sp.get(k);
       if (v) body[k] = v;

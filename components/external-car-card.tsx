@@ -3,6 +3,7 @@ import { fmtEur } from "@/lib/constants";
 import FuelBadge from "@/components/fuel-badge";
 import FavoriteButton from "@/components/favorite-button";
 import CompareButton from "@/components/compare-button";
+import PriceRatingPill from "@/components/price-rating-pill";
 
 export const SOURCE_LABEL: Record<string, string> = {
   OLX: "OLX",
@@ -69,10 +70,22 @@ export default function ExternalCarCard({ listing }: { listing: any }) {
             <span>{listing.km.toLocaleString("pt-PT")} km</span>
           )}
         </div>
-        <div className="mt-auto flex items-end justify-between border-t border-outline pt-2">
-          <span className="font-head text-[1.35rem] font-extrabold text-ink">
-            {listing.price != null ? fmtEur(listing.price) : "Sob consulta"}
-          </span>
+        <div className="mt-auto border-t border-outline pt-2">
+          <div className="flex items-end justify-between">
+            <span className="font-head text-[1.35rem] font-extrabold text-ink">
+              {listing.price != null ? fmtEur(listing.price) : "Sob consulta"}
+            </span>
+            {listing.previousPrice != null &&
+              listing.price != null &&
+              listing.previousPrice > listing.price && (
+                <span className="rounded-full bg-olive/15 px-2 py-0.5 text-[0.74rem] font-bold text-olive">
+                  ↓ {fmtEur(listing.previousPrice - listing.price)}
+                </span>
+              )}
+          </div>
+          {listing._rating && (
+            <PriceRatingPill rating={listing._rating} className="mt-1.5" />
+          )}
         </div>
         <div className="flex justify-between text-[0.74rem] font-medium text-n2muted2">
           <span>{listing.sellerType ?? "Vendedor"}</span>

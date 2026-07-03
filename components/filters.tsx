@@ -1,7 +1,7 @@
 "use client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRef, useState } from "react";
-import { FUELS, GEARS } from "@/lib/constants";
+import { FUELS, GEARS, BODY_TYPES, CAR_COLOR_NAMES } from "@/lib/constants";
 
 export default function Filters({
   brands,
@@ -29,7 +29,20 @@ export default function Filters({
     "anoMin",
     "kmMax",
     "ordenar",
+    "carroceria",
+    "cor",
+    "potMin",
+    "lugares",
+    "mensalMax",
   ];
+
+  const hasAdvanced = !!(
+    sp.get("carroceria") ||
+    sp.get("cor") ||
+    sp.get("potMin") ||
+    sp.get("lugares") ||
+    sp.get("mensalMax")
+  );
 
   // aplica os filtros lendo os valores atuais (com possíveis overrides)
   function applyNow(overrides: Record<string, string> = {}) {
@@ -166,6 +179,89 @@ export default function Filters({
           />
         </div>
       </div>
+      <details open={hasAdvanced} className="group">
+        <summary className="cursor-pointer select-none text-[0.9rem] font-semibold text-clay">
+          Mais filtros
+        </summary>
+        <div className="mt-3 flex flex-col gap-3">
+          <div>
+            <label className="flabel">Mensalidade até (€/mês)</label>
+            <input
+              id="f-mensalMax"
+              type="number"
+              min={0}
+              step={10}
+              className="finput"
+              placeholder="ex: 250"
+              defaultValue={sp.get("mensalMax") || ""}
+              onChange={applyDebounced}
+            />
+          </div>
+          <div>
+            <label className="flabel">Carroçaria</label>
+            <select
+              id="f-carroceria"
+              className="finput"
+              defaultValue={sp.get("carroceria") || ""}
+              onChange={() => applyNow()}
+            >
+              <option value="">Todas</option>
+              {BODY_TYPES.map((b) => (
+                <option key={b}>{b}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="flabel">Cor</label>
+            <select
+              id="f-cor"
+              className="finput"
+              defaultValue={sp.get("cor") || ""}
+              onChange={() => applyNow()}
+            >
+              <option value="">Todas</option>
+              {CAR_COLOR_NAMES.map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="flabel">Potência mín (cv)</label>
+              <input
+                id="f-potMin"
+                type="number"
+                min={0}
+                step={10}
+                className="finput"
+                placeholder="ex: 90"
+                defaultValue={sp.get("potMin") || ""}
+                onChange={applyDebounced}
+              />
+            </div>
+            <div>
+              <label className="flabel">Lugares</label>
+              <select
+                id="f-lugares"
+                className="finput"
+                defaultValue={sp.get("lugares") || ""}
+                onChange={() => applyNow()}
+              >
+                <option value="">Todos</option>
+                {[2, 4, 5, 7, 9].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <p className="text-[0.72rem] leading-snug text-n2muted2">
+            Carroçaria, cor e lugares aplicam-se aos anúncios agregados.
+          </p>
+        </div>
+      </details>
+
       <input
         type="hidden"
         id="f-ordenar"
