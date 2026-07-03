@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/ui/toaster";
+import PwaRegister from "@/components/pwa-register";
 import { SITE_URL, SITE_NAME, SITE_TAGLINE, SITE_DESCRIPTION } from "@/lib/seo";
 
 const geistSans = localFont({
@@ -61,6 +62,11 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
   },
   manifest: "/site.webmanifest",
+  appleWebApp: { capable: true, title: SITE_NAME, statusBarStyle: "default" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#1F1D18",
 };
 
 export default function RootLayout({
@@ -76,6 +82,7 @@ export default function RootLayout({
         <Providers>
           {children}
           <Toaster />
+          <PwaRegister />
         </Providers>
       </body>
     </html>

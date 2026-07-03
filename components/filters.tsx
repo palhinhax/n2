@@ -49,13 +49,19 @@ export default function Filters({
     const params = new URLSearchParams();
     // parâmetros fixos da página (ex. fuel=Elétrico na página de elétricos)
     for (const [k, v] of Object.entries(fixed)) if (v) params.set(k, v);
+    const NUMERIC = ["precoMax", "kmMax", "anoMin", "potMin", "mensalMax"];
     for (const k of KEYS) {
       if (hideFuel && k === "fuel") continue; // combustível é fixo aqui
-      const v =
+      let v =
         k in overrides
           ? overrides[k]
           : (document.getElementById("f-" + k) as HTMLInputElement)?.value ||
             "";
+      // números só inteiros positivos (evita "15000.75", negativos, etc.)
+      if (v && NUMERIC.includes(k)) {
+        const n = Math.floor(Number(v));
+        v = Number.isFinite(n) && n > 0 ? String(n) : "";
+      }
       if (v) params.set(k, v);
     }
     router.push(basePath + "?" + params.toString());

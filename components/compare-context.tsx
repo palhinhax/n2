@@ -15,12 +15,15 @@ type CmpCtx = {
   remove: (key: string) => void;
   clear: () => void;
   full: boolean;
+  max: number;
+  rejectedAt: number; // timestamp da última tentativa bloqueada (limite atingido)
 };
 
 const Ctx = createContext<CmpCtx | null>(null);
 
 export function CompareProvider({ children }: { children: React.ReactNode }) {
   const [keys, setKeys] = useState<string[]>([]);
+  const [rejectedAt, setRejectedAt] = useState(0);
 
   useEffect(() => {
     try {
@@ -48,12 +51,15 @@ export function CompareProvider({ children }: { children: React.ReactNode }) {
         const k = cmpKey(kind, id);
         if (keys.includes(k)) persist(keys.filter((x) => x !== k));
         else if (keys.length < MAX) persist([...keys, k]);
+        else setRejectedAt(Date.now()); // limite atingido — sinaliza à UI
       },
       remove: (k) => persist(keys.filter((x) => x !== k)),
       clear: () => persist([]),
       full: keys.length >= MAX,
+      max: MAX,
+      rejectedAt,
     }),
-    [keys]
+    [keys, rejectedAt]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

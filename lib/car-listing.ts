@@ -11,6 +11,7 @@ export interface ListingQuery {
   anoMin?: string;
   kmMax?: string;
   ordenar?: string;
+  distrito?: string; // distrito/localização
   // filtros avançados
   carroceria?: string; // tipo de carroçaria (só anúncios externos)
   cor?: string; // cor (só anúncios externos)
@@ -221,6 +222,7 @@ export function buildWheres(q: ListingQuery): { where: any; whereExt: any } {
   if (anoMin != null) where.year = { gte: anoMin };
   if (kmMax != null) where.km = { lte: kmMax };
   if (potMin != null) where.power = { gte: potMin };
+  if (q.distrito) where.district = { equals: q.distrito, mode: "insensitive" };
 
   const whereExt: any = { active: true, isDuplicate: false };
   // marca com aliases: como o filtro de combustível também usa OR, juntamos
@@ -245,6 +247,8 @@ export function buildWheres(q: ListingQuery): { where: any; whereExt: any } {
     whereExt.bodyType = { contains: q.carroceria, mode: "insensitive" };
   if (q.cor) whereExt.color = { contains: q.cor, mode: "insensitive" };
   if (lugares != null) whereExt.seats = lugares;
+  if (q.distrito)
+    whereExt.location = { contains: q.distrito, mode: "insensitive" };
 
   // bloqueia preços absurdamente baixos (erros de parsing / peças). Deixa
   // passar os "sob consulta" (preço nulo).

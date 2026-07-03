@@ -30,11 +30,18 @@ export default function SiteFooter() {
                 </Link>
               </li>
               <li>
-                <Link
-                  href="/carros?fuel=El%C3%A9trico"
-                  className="hover:text-stone2"
-                >
+                <Link href="/eletricos" className="hover:text-stone2">
                   Elétricos
+                </Link>
+              </li>
+              <li>
+                <Link href="/marcas" className="hover:text-stone2">
+                  Por marca e distrito
+                </Link>
+              </li>
+              <li>
+                <Link href="/calcular-isv" className="hover:text-stone2">
+                  Calcular ISV / IUC
                 </Link>
               </li>
             </ul>
@@ -45,13 +52,23 @@ export default function SiteFooter() {
             </h4>
             <ul className="space-y-1 text-[0.92rem]">
               <li>
-                <Link href="/garagem/novo" className="hover:text-stone2">
-                  Anunciar grátis
+                <Link href="/vender" className="hover:text-stone2">
+                  Vender carro grátis
+                </Link>
+              </li>
+              <li>
+                <Link href="/avaliar" className="hover:text-stone2">
+                  Avaliar o meu carro
                 </Link>
               </li>
               <li>
                 <Link href="/garagem" className="hover:text-stone2">
                   A minha garagem
+                </Link>
+              </li>
+              <li>
+                <Link href="/seguranca" className="hover:text-stone2">
+                  Comprar em segurança
                 </Link>
               </li>
             </ul>

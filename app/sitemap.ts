@@ -2,6 +2,10 @@ import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
 import { SITE_URL } from "@/lib/seo";
 import { MIN_LISTING_PRICE } from "@/lib/car-listing";
+import { DISTRICTS } from "@/lib/constants";
+import { slugify } from "@/lib/slug";
+
+const PRICE_BANDS = [5000, 7500, 10000, 15000, 20000, 30000, 50000];
 
 export const dynamic = "force-dynamic";
 export const revalidate = 86400; // 1 dia
@@ -16,7 +20,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/`, changeFrequency: "daily", priority: 1 },
     { url: `${SITE_URL}/carros`, changeFrequency: "hourly", priority: 0.9 },
     { url: `${SITE_URL}/eletricos`, changeFrequency: "daily", priority: 0.8 },
+    { url: `${SITE_URL}/marcas`, changeFrequency: "daily", priority: 0.8 },
+    { url: `${SITE_URL}/vender`, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE_URL}/avaliar`, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${SITE_URL}/seguranca`, changeFrequency: "monthly", priority: 0.5 },
     {
       url: `${SITE_URL}/calcular-isv`,
       changeFrequency: "monthly",
@@ -27,16 +34,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly",
       priority: 0.3,
     },
+    ...DISTRICTS.map((d) => ({
+      url: `${SITE_URL}/carros-usados/${slugify(d)}`,
+      changeFrequency: "daily" as const,
+      priority: 0.6,
+    })),
+    ...PRICE_BANDS.map((p) => ({
+      url: `${SITE_URL}/carros-ate/${p}`,
+      changeFrequency: "daily" as const,
+      priority: 0.6,
+    })),
   ];
 
-  let brands: { name: string }[] = [];
+  let brands: { name: string; models: { name: string }[] }[] = [];
   let cars: { id: string; updatedAt: Date }[] = [];
   let listings: { id: string; lastSeenAt: Date }[] = [];
   let stands: { id: string }[] = [];
   try {
     [brands, cars, listings, stands] = await Promise.all([
       prisma.brand.findMany({
-        select: { name: true },
+        select: { name: true, models: { select: { name: true } } },
         orderBy: { name: "asc" },
       }),
       prisma.car.findMany({
@@ -65,11 +82,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     return base;
   }
 
-  const brandPages: MetadataRoute.Sitemap = brands.map((b) => ({
-    url: `${SITE_URL}/carros?marca=${encodeURIComponent(b.name)}`,
-    changeFrequency: "daily",
-    priority: 0.6,
-  }));
+  const brandPages: MetadataRoute.Sitemap = [];
+  for (const b of brands) {
+    const bslug = slugify(b.name);
+    brandPages.push({
+      url: `${SITE_URL}/marcas/${bslug}`,
+      changeFrequency: "daily",
+      priority: 0.7,
+    });
+    for (const m of b.models) {
+      brandPages.push({
+        url: `${SITE_URL}/marcas/${bslug}/${slugify(m.name)}`,
+        changeFrequency: "daily",
+        priority: 0.6,
+      });
+    }
+  }
 
   const carPages: MetadataRoute.Sitemap = cars.map((c) => ({
     url: `${SITE_URL}/carros/${c.id}`,

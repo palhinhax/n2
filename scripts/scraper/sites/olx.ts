@@ -182,11 +182,12 @@ function parseCard(
   // antes do link do anúncio no HTML (procuramos a mais próxima antes).
   const before = html.slice(Math.max(0, atIndex - 2500), atIndex);
   const imgMatches = before.match(
-    /https:\/\/[a-z0-9.-]*apollo\.olxcdn\.com\/v1\/files\/[^\s"'\\)]+/gi
+    /https:\/\/[a-z0-9.-]*apollo\.olxcdn\.com(?::\d+)?\/v1\/files\/[^\s"'\\)]+/gi
   );
   let image: string | undefined;
   if (imgMatches?.length) {
     image = imgMatches[imgMatches.length - 1]
+      .replace(/^(https:\/\/[^/:]+):443\//, "$1/")
       .replace(/;s=\d+x\d+.*$/, ";s=800x600")
       .replace(/&quot;.*$/, "");
   }

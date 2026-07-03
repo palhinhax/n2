@@ -18,6 +18,8 @@ import { absolute, clamp, eur, SITE_NAME } from "@/lib/seo";
 import PriceBadge from "@/components/price-badge";
 import { marketStats, ratePrice } from "@/lib/price-intel";
 import FinanceSimulator from "@/components/finance-simulator";
+import ReportButton from "@/components/report-button";
+import CarAssistant from "@/components/car-assistant";
 
 export const dynamic = "force-dynamic";
 
@@ -254,6 +256,13 @@ export default async function CarDetail({
               </p>
             </section>
             <section className="mt-7">
+              <CarAssistant
+                kind="car"
+                id={car.id}
+                title={`${car.brand.name} ${car.model.name}`}
+              />
+            </section>
+            <section className="mt-7">
               <AdSlot variant="banner" index={1} />
             </section>
             <section className="mt-7">
@@ -320,6 +329,18 @@ export default async function CarDetail({
                   </small>
                 </div>
               </div>
+              {car.status === "APPROVED" && (
+                <div className="mt-3 flex items-center justify-between gap-2 border-t border-outline pt-3">
+                  <span className="inline-flex items-center gap-1 text-[0.76rem] font-semibold text-olive">
+                    ✓ Anúncio moderado pela equipa
+                  </span>
+                  <ReportButton
+                    kind="car"
+                    id={car.id}
+                    title={`${car.brand.name} ${car.model.name}`}
+                  />
+                </div>
+              )}
             </div>
             {car.price ? (
               <FinanceSimulator

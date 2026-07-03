@@ -15,6 +15,15 @@ export async function ensureListingDetail(listing: {
   url: string;
   detailsFetchedAt: Date | null;
   imageUrls: string;
+  gearbox?: string | null;
+  power?: number | null;
+  displacement?: number | null;
+  km?: number | null;
+  fuel?: string | null;
+  year?: number | null;
+  location?: string | null;
+  sellerType?: string | null;
+  sellerName?: string | null;
 }) {
   const fresh =
     listing.detailsFetchedAt &&
@@ -23,6 +32,17 @@ export async function ensureListingDetail(listing: {
   if (fresh) return null;
 
   const detail = await fetchListingDetail(listing.source as any, listing.url);
+
+  // fetch falhou ou página vazia/bloqueada → não escrevas nada por cima dos
+  // dados que já temos; sem detailsFetchedAt, a próxima visita tenta de novo.
+  const gotSomething =
+    detail.description != null ||
+    detail.imageUrls.length > 0 ||
+    detail.km != null ||
+    detail.year != null ||
+    detail.gearbox != null ||
+    detail.fuel != null;
+  if (!gotSomething) return null;
 
   // junta as fotos da galeria completa às que já tínhamos, sem duplicar
   let existingImgs: string[] = [];
@@ -49,6 +69,16 @@ export async function ensureListingDetail(listing: {
       registrationDate: detail.registrationDate,
       warranty: detail.warranty,
       co2: detail.co2,
+      // preenche specs em falta (sobretudo anúncios OLX que chegam pobres)
+      gearbox: listing.gearbox ?? detail.gearbox ?? undefined,
+      power: listing.power ?? detail.power ?? undefined,
+      displacement: listing.displacement ?? detail.displacement ?? undefined,
+      km: listing.km ?? detail.km ?? undefined,
+      fuel: listing.fuel ?? detail.fuel ?? undefined,
+      year: listing.year ?? detail.year ?? undefined,
+      location: listing.location ?? detail.location ?? undefined,
+      sellerType: listing.sellerType ?? detail.sellerType ?? undefined,
+      sellerName: listing.sellerName ?? detail.sellerName ?? undefined,
       imageUrls: mergedImgs.length
         ? JSON.stringify(mergedImgs)
         : listing.imageUrls,

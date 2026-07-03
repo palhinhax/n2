@@ -23,6 +23,17 @@ export interface ListingDetail {
   warranty: string | null;
   co2: number | null;
   imageUrls: string[]; // galeria completa (pode ser maior que a da listagem)
+  // specs que também vivem na listagem — usados para preencher campos em falta
+  // (sobretudo em anúncios OLX, que chegam pobres do cartão)
+  gearbox: string | null;
+  power: number | null;
+  displacement: number | null;
+  km: number | null;
+  fuel: string | null;
+  year: number | null;
+  location: string | null;
+  sellerType: string | null;
+  sellerName: string | null;
 }
 
 const EMPTY: ListingDetail = {
@@ -38,7 +49,242 @@ const EMPTY: ListingDetail = {
   warranty: null,
   co2: null,
   imageUrls: [],
+  gearbox: null,
+  power: null,
+  displacement: null,
+  km: null,
+  fuel: null,
+  year: null,
+  location: null,
+  sellerType: null,
+  sellerName: null,
 };
+
+// ---------------------------------------------------------------------------
+// JSON-LD (dados estruturados Schema.org) — presente em OLX, Standvirtual, etc.
+// É a forma mais fiável de obter descrição e especificações limpas.
+// ---------------------------------------------------------------------------
+
+const JUNK_RE =
+  /(pol[íi]tica de (privacidade|cookies)|direitos do consumidor|aceitar( todos)? os? cookies|iniciar sess[ãa]o|criar conta|todas as categorias|standvirtual|imovirtual|olx\.(bg|pl|ro|ua)|©\s*\d{4}|termos e condi)/i;
+
+/** Verdadeiro se o texto parece um despejo de navegação/legal e não uma descrição. */
+function looksLikeJunk(text: string): boolean {
+  return JUNK_RE.test(text);
+}
+
+function parseJsonLd(html: string): any[] {
+  const out: any[] = [];
+  const re =
+    /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    try {
+      const j = JSON.parse(m[1].trim());
+      if (Array.isArray(j)) out.push(...j);
+      else out.push(j);
+    } catch {
+      /* ignora blocos inválidos */
+    }
+  }
+  return out;
+}
+
+function jsonLdVehicle(html: string): any | null {
+  const nodes = parseJsonLd(html);
+  const flat: any[] = [];
+  for (const n of nodes) {
+    if (!n || typeof n !== "object") continue;
+    flat.push(n);
+    if (Array.isArray(n["@graph"])) flat.push(...n["@graph"]);
+    if (n.itemOffered) flat.push(n.itemOffered);
+    if (n.mainEntity) flat.push(n.mainEntity);
+  }
+  const isVeh = (t: unknown) => {
+    const s = Array.isArray(t) ? t.join(",") : String(t ?? "");
+    return /Car|Vehicle|Product/i.test(s);
+  };
+  // preferimos um nó com specs de veículo; senão qualquer um com descrição
+  return (
+    flat.find(
+      (o) =>
+        o &&
+        isVeh(o["@type"]) &&
+        (o.vehicleTransmission || o.fuelType || o.mileageFromOdometer)
+    ) ||
+    flat.find((o) => o && isVeh(o["@type"])) ||
+    null
+  );
+}
+
+/** Lê um número de um QuantitativeValue do Schema.org (ou string simples). */
+function qv(x: any): number | null {
+  if (x == null) return null;
+  if (typeof x === "object")
+    return intFrom(String(x.value ?? x["@value"] ?? x.minValue ?? ""));
+  return intFrom(String(x));
+}
+function txt(x: any): string | null {
+  if (x == null) return null;
+  if (typeof x === "object")
+    return (x.name ?? x.value ?? null) as string | null;
+  const s = String(x).trim();
+  return s || null;
+}
+
+function jsonLdDetail(html: string): Partial<ListingDetail> {
+  const v = jsonLdVehicle(html);
+  if (!v) return {};
+  const descRaw =
+    typeof v.description === "string" ? stripTags(v.description) : "";
+  const description =
+    descRaw && !looksLikeJunk(descRaw) ? descRaw.trim() : null;
+  return {
+    description,
+    color: txt(v.color),
+    doors: qv(v.numberOfDoors),
+    seats: qv(v.vehicleSeatingCapacity ?? v.seatingCapacity),
+    bodyType: txt(v.bodyType),
+    fuel: txt(v.fuelType),
+    gearbox: txt(v.vehicleTransmission),
+    power: qv(v.vehicleEngine?.enginePower ?? v.vehicleEngine?.power),
+    displacement: qv(
+      v.vehicleEngine?.engineDisplacement ?? v.vehicleEngine?.displacement
+    ),
+    km: qv(v.mileageFromOdometer),
+    co2: qv(v.emissionsCO2),
+    year: qv(
+      v.vehicleModelDate ?? v.productionDate ?? v.dateVehicleFirstRegistered
+    ),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// OLX — o anúncio NÃO vem em __NEXT_DATA__: vem em window.__PRERENDERED_STATE__,
+// uma string JSON duplamente codificada com o objeto `ad` completo (params
+// estruturados, fotos, localização, vendedor). É a fonte mais fiável no OLX.
+// ---------------------------------------------------------------------------
+
+/** Normaliza URL de foto do CDN do OLX: remove a porta explícita (:443) e
+ *  pede um tamanho grande fixo (;s=1280x0). */
+function normalizePhotoUrl(u: string): string {
+  return String(u)
+    .replace(/^(https:\/\/[^/:]+):443\//, "$1/")
+    .replace(/;s=\d+x\d+.*$/, ";s=1280x0");
+}
+
+function parsePrerenderedAd(html: string): any | null {
+  const m = html.match(/__PRERENDERED_STATE__\s*=\s*("(?:[^"\\]|\\.)*")/);
+  if (!m) return null;
+  try {
+    const state = JSON.parse(JSON.parse(m[1]));
+    return state?.ad?.ad ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Primeiro inteiro numa string — "4-5" → 4 (intFrom daria 45). */
+function firstInt(s: string | null): number | null {
+  const m = String(s ?? "").match(/\d+/);
+  return m ? parseInt(m[0], 10) : null;
+}
+
+/** Ano plausível no título ("dacia duster 2016") — último recurso quando o
+ *  vendedor não preencheu o parâmetro. */
+function yearFromTitle(title: unknown): number | null {
+  const m = String(title ?? "").match(/\b(19[5-9]\d|20[0-4]\d)\b/);
+  return m ? parseInt(m[0], 10) : null;
+}
+
+/** Como stripTags, mas preserva quebras de linha (<br>, </p>) — para descrições. */
+function stripTagsKeepBreaks(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/[ \t]+/g, " ")
+    .replace(/ ?\n ?/g, "\n")
+    .trim();
+}
+
+function olxPrerenderedDetail(ad: any): ListingDetail {
+  // params: [{ key, name, value, normalizedValue }] — o normalizedValue já vem
+  // limpo ("168.000 km" → "168000"), preferimo-lo para números.
+  const byKey: Record<string, { value: string; norm: string }> = {};
+  for (const p of ad?.params ?? []) {
+    if (!p?.key) continue;
+    byKey[String(p.key).toLowerCase()] = {
+      value: String(p.value ?? ""),
+      norm: String(p.normalizedValue ?? p.value ?? ""),
+    };
+  }
+  const val = (...keys: string[]): string | null => {
+    for (const k of keys) {
+      const v = byKey[k]?.value?.trim();
+      if (v) return v;
+    }
+    return null;
+  };
+  const num = (...keys: string[]): number | null => {
+    for (const k of keys) {
+      const e = byKey[k];
+      const n = intFrom(e?.norm || e?.value);
+      if (n != null) return n;
+    }
+    return null;
+  };
+
+  const descRaw = ad?.description
+    ? stripTagsKeepBreaks(String(ad.description))
+    : "";
+  const year = num("year", "ano") ?? yearFromTitle(ad?.title);
+  const regMonth = val("first_registration_month");
+
+  const photos: string[] = Array.isArray(ad?.photos)
+    ? ad.photos
+        .filter((p: unknown): p is string => typeof p === "string")
+        .map(normalizePhotoUrl)
+    : [];
+
+  const loc = ad?.location;
+  const location =
+    loc?.pathName ??
+    ([loc?.regionName, loc?.cityName].filter(Boolean).join(", ") || null);
+
+  return {
+    description: descRaw && !looksLikeJunk(descRaw) ? descRaw : null,
+    equipment: [],
+    color: val("color", "cor"),
+    doors: firstInt(val("portas", "door_count", "nr_doors")),
+    seats: num("nr_seats", "lugares"),
+    drivetrain: val("traccao", "wheel_drive", "transmission_type"),
+    bodyType: val("body_type", "segmento"),
+    condition: val("condicao", "condition", "estado"),
+    registrationDate: regMonth
+      ? [regMonth, year].filter(Boolean).join(" ")
+      : null,
+    warranty: val("warranty", "garantia"),
+    co2: num("co2", "co2_emissions"),
+    imageUrls: photos.slice(0, 60),
+    gearbox: val("gearbox", "caixa"),
+    power: num("engine_power", "potencia"),
+    displacement: num("engine_capacity", "cilindrada"),
+    km: num("quilometros", "mileage"),
+    fuel: val("combustivel", "fuel_type"),
+    year,
+    location,
+    sellerType:
+      typeof ad?.isBusiness === "boolean"
+        ? ad.isBusiness
+          ? "Profissional"
+          : "Particular"
+        : null,
+    sellerName: ad?.user?.name ?? null,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Standvirtual / OLX — páginas Next.js: o advert está no __NEXT_DATA__.
@@ -123,10 +369,12 @@ function collectPhotos(advert: any, html: string): string[] {
   }
   if (urls.size === 0) {
     // fallback: apanha imagens da galeria no HTML renderizado
-    const re = /https:\/\/ireland\.apollo\.olxcdn\.com\/v1\/files\/[^\s"')]+/g;
+    // (o OLX serve os URLs com porta explícita — ireland.apollo.olxcdn.com:443)
+    const re =
+      /https:\/\/ireland\.apollo\.olxcdn\.com(?::\d+)?\/v1\/files\/[^\s"')]+/g;
     for (const m of html.match(re) ?? []) {
       if (m.includes(";s=") && !m.includes("s=148x110")) {
-        urls.add(m.replace(/;s=\d+x\d+.*$/, ";s=1280x0"));
+        urls.add(normalizePhotoUrl(m));
       }
     }
   }
@@ -136,35 +384,73 @@ function collectPhotos(advert: any, html: string): string[] {
 function nextDataDetail(html: string): ListingDetail {
   const nd = parseNextData(html);
   const advert = nd ? findAdvert(nd) : null;
+  const ld = jsonLdDetail(html);
 
-  if (!advert) return textFallbackDetail(html);
+  // sem advert estruturado → OLX guarda o anúncio no __PRERENDERED_STATE__
+  if (!advert) {
+    const olxAd = parsePrerenderedAd(html);
+    if (olxAd) {
+      const olx = olxPrerenderedDetail(olxAd);
+      return {
+        ...olx,
+        description: olx.description ?? ld.description ?? null,
+        imageUrls: olx.imageUrls.length
+          ? olx.imageUrls
+          : collectPhotos(null, html),
+      };
+    }
+    // último recurso: JSON-LD + texto sanitizado
+    const base = textFallbackDetail(html);
+    return {
+      ...base,
+      description: ld.description ?? base.description,
+      color: ld.color ?? base.color,
+      doors: ld.doors ?? base.doors,
+      seats: ld.seats ?? base.seats,
+      bodyType: ld.bodyType ?? base.bodyType,
+      co2: ld.co2 ?? base.co2,
+      gearbox: ld.gearbox ?? null,
+      power: ld.power ?? null,
+      displacement: ld.displacement ?? null,
+      km: ld.km ?? null,
+      fuel: ld.fuel ?? null,
+      year: ld.year ?? null,
+      imageUrls: collectPhotos(null, html),
+    };
+  }
 
   const map = paramMap(advert);
   const descRaw = advert.description ?? advert.text ?? advert.body ?? "";
-  const description = descRaw
-    ? stripTags(String(descRaw))
-    : textDescription(html);
+  const advDesc = descRaw ? stripTags(String(descRaw)) : "";
+  const description =
+    (advDesc && !looksLikeJunk(advDesc) ? advDesc.trim() : "") ||
+    ld.description ||
+    textDescription(html);
 
   return {
     description: description || null,
     equipment: parseStandvirtualEquipment(advert),
-    color: pickMap(map, ["color", "colour", "cor"]),
-    doors: intFrom(
-      pickMap(map, ["door_count", "nr_doors", "nº de portas", "portas"])
-    ),
-    seats: intFrom(pickMap(map, ["nr_seats", "seats", "lotação", "lotacao"])),
+    color: pickMap(map, ["color", "colour", "cor"]) ?? ld.color ?? null,
+    doors:
+      intFrom(
+        pickMap(map, ["door_count", "nr_doors", "nº de portas", "portas"])
+      ) ??
+      ld.doors ??
+      null,
+    seats:
+      intFrom(pickMap(map, ["nr_seats", "seats", "lotação", "lotacao"])) ??
+      ld.seats ??
+      null,
     drivetrain: pickMap(map, [
       "transmission_type",
       "wheel_drive",
       "tracção",
       "traccao",
     ]),
-    bodyType: pickMap(map, [
-      "body_type",
-      "segmento",
-      "carroçaria",
-      "carroceria",
-    ]),
+    bodyType:
+      pickMap(map, ["body_type", "segmento", "carroçaria", "carroceria"]) ??
+      ld.bodyType ??
+      null,
     condition: pickMap(map, ["condition", "estado", "new_used", "condição"]),
     registrationDate: pickMap(map, [
       "first_registration",
@@ -172,8 +458,34 @@ function nextDataDetail(html: string): ListingDetail {
       "data de registo",
     ]),
     warranty: pickMap(map, ["warranty", "garantia", "dealer_warranty"]),
-    co2: intFrom(pickMap(map, ["co2_emissions", "co2", "emissões"])),
+    co2:
+      intFrom(pickMap(map, ["co2_emissions", "co2", "emissões"])) ??
+      ld.co2 ??
+      null,
     imageUrls: collectPhotos(advert, html),
+    gearbox:
+      pickMap(map, ["gearbox", "caixa", "transmission"]) ?? ld.gearbox ?? null,
+    power:
+      intFrom(pickMap(map, ["engine_power", "potência", "potencia"])) ??
+      ld.power ??
+      null,
+    displacement:
+      intFrom(pickMap(map, ["engine_capacity", "cilindrada"])) ??
+      ld.displacement ??
+      null,
+    km:
+      intFrom(pickMap(map, ["mileage", "quilómetros", "quilometros"])) ??
+      ld.km ??
+      null,
+    fuel:
+      pickMap(map, ["fuel_type", "combustível", "combustivel"]) ??
+      ld.fuel ??
+      null,
+    year:
+      intFrom(pickMap(map, ["year", "ano", "first_registration_year"])) ?? null,
+    location: pickMap(map, ["city", "location", "localização", "localizacao"]),
+    sellerType: pickMap(map, ["seller_type", "tipo de vendedor"]),
+    sellerName: null,
   };
 }
 
@@ -192,11 +504,16 @@ function textAfter(text: string, label: string, maxLen = 40): string | null {
 }
 
 function textDescription(html: string): string | null {
-  // heurística: apanha o parágrafo mais longo do corpo
+  // heurística: apanha o parágrafo mais longo do corpo, DESCARTANDO blocos que
+  // pareçam navegação/legal/cookies (o problema dos anúncios OLX) e os
+  // demasiado longos (dumps da página inteira).
   const text = stripTags(html);
-  const chunks = text.split(/\s{3,}/).filter((s) => s.length > 120);
+  const chunks = text
+    .split(/\s{3,}/)
+    .map((s) => s.trim())
+    .filter((s) => s.length >= 120 && s.length <= 1500 && !looksLikeJunk(s));
   chunks.sort((a, b) => b.length - a.length);
-  return chunks[0]?.trim() ?? null;
+  return chunks[0] ?? null;
 }
 
 function textFallbackDetail(html: string): ListingDetail {

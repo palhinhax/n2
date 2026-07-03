@@ -18,6 +18,8 @@ import { absolute, clamp, eur, SITE_NAME } from "@/lib/seo";
 import PriceBadge from "@/components/price-badge";
 import { marketStats, ratePrice } from "@/lib/price-intel";
 import FinanceSimulator from "@/components/finance-simulator";
+import ReportButton from "@/components/report-button";
+import CarAssistant from "@/components/car-assistant";
 
 export const dynamic = "force-dynamic";
 
@@ -87,6 +89,17 @@ export default async function ExternalCarDetail({
   } catch {
     photos = [];
   }
+
+  // rede de segurança: esconde descrições que sejam despejos de navegação/legal
+  // (anúncios OLX antigos guardados antes da correção do parser)
+  const JUNK_RE =
+    /(pol[íi]tica de (privacidade|cookies)|direitos do consumidor|aceitar( todos)? os? cookies|todas as categorias|standvirtual|imovirtual|olx\.(bg|pl|ro|ua)|termos e condi)/i;
+  const cleanDescription =
+    listing.description &&
+    !JUNK_RE.test(listing.description) &&
+    listing.description.length <= 4000
+      ? listing.description
+      : null;
 
   let equipment: { group: string; items: string[] }[] = [];
   try {
@@ -205,13 +218,13 @@ export default async function ExternalCarDetail({
           <div className="flex flex-col gap-5">
             <ExternalGallery photos={photos} title={listing.title} />
 
-            {listing.description && (
+            {cleanDescription && (
               <div className="n2-card p-5">
                 <h2 className="mb-2 font-head text-[1.1rem] font-bold text-ink">
                   Descrição
                 </h2>
                 <p className="whitespace-pre-line text-[0.92rem] leading-relaxed text-ink/90">
-                  {listing.description}
+                  {cleanDescription}
                 </p>
               </div>
             )}
@@ -240,6 +253,12 @@ export default async function ExternalCarDetail({
                 </div>
               </div>
             )}
+
+            <CarAssistant
+              kind="listing"
+              id={listing.id}
+              title={listing.title}
+            />
           </div>
 
           <div className="flex flex-col gap-4">
@@ -293,6 +312,16 @@ export default async function ExternalCarDetail({
                 origem e ao vendedor. O contacto e a negociação fazem-se no site
                 original.
               </p>
+              <div className="mt-3 flex items-center justify-between gap-2 border-t border-outline pt-3">
+                <span className="inline-flex items-center gap-1 text-[0.76rem] font-semibold text-olive">
+                  ✓ Origem identificada: {sourceLabel}
+                </span>
+                <ReportButton
+                  kind="listing"
+                  id={listing.id}
+                  title={listing.title}
+                />
+              </div>
               {isAdmin && <RefreshDetailsButton id={listing.id} />}
             </div>
 

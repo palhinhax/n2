@@ -1,17 +1,32 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useCompare } from "@/components/compare-context";
 
 // Barra flutuante que aparece quando há carros selecionados para comparar.
 export default function CompareTray() {
-  const { keys, clear } = useCompare();
+  const { keys, clear, max, rejectedAt } = useCompare();
+  const [showLimit, setShowLimit] = useState(false);
+
+  useEffect(() => {
+    if (!rejectedAt) return;
+    setShowLimit(true);
+    const t = setTimeout(() => setShowLimit(false), 3000);
+    return () => clearTimeout(t);
+  }, [rejectedAt]);
+
   if (keys.length === 0) return null;
 
   const href = `/comparar?ids=${encodeURIComponent(keys.join(","))}`;
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-outline bg-white/95 backdrop-blur">
+      {showLimit && (
+        <div className="bg-clay/10 py-1.5 text-center text-[0.8rem] font-semibold text-clay">
+          Máximo de {max} carros para comparar — remove um para adicionar outro.
+        </div>
+      )}
       <div className="mx-auto flex w-[min(1240px,94%)] items-center gap-2 py-2 sm:gap-3 sm:py-2.5">
         <span className="text-[0.85rem] font-semibold text-ink sm:text-[0.9rem]">
           {keys.length}{" "}
