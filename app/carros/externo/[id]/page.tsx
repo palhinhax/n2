@@ -14,6 +14,8 @@ import TrackView from "@/components/track-view";
 import type { Metadata } from "next";
 import JsonLd from "@/components/json-ld";
 import { absolute, clamp, eur, SITE_NAME } from "@/lib/seo";
+import PriceBadge from "@/components/price-badge";
+import { marketStats, ratePrice } from "@/lib/price-intel";
 
 export const dynamic = "force-dynamic";
 
@@ -121,6 +123,13 @@ export default async function ExternalCarDetail({
   ];
 
   const sourceLabel = SOURCE_LABEL[listing.source] ?? listing.source;
+
+  const stats = await marketStats({
+    brand: listing.brand,
+    model: listing.model,
+    year: listing.year,
+  });
+  const rating = ratePrice(listing.price, stats);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -232,6 +241,7 @@ export default async function ExternalCarDetail({
               <div className="mt-2 font-head text-[2rem] font-extrabold text-ink">
                 {listing.price != null ? fmtEur(listing.price) : "Sob consulta"}
               </div>
+              <PriceBadge rating={rating} stats={stats} />
               <div className="mt-3">
                 <FavoriteButton
                   kind="listing"

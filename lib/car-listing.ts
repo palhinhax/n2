@@ -27,12 +27,56 @@ const BRAND_ALIASES: Record<string, string[]> = {
 const aliasesFor = (name: string) =>
   BRAND_ALIASES[name.toLowerCase()] ?? [name];
 
-/** Match de combustível tolerante às variações entre sites. */
-function fuelFilter(fuel: string) {
-  if (/plug/i.test(fuel)) return { contains: "Plug", mode: "insensitive" };
-  if (/el[ée]tric/i.test(fuel))
-    return { contains: "létric", mode: "insensitive" };
-  return { equals: fuel, mode: "insensitive" as const };
+/**
+ * Aplica o filtro de combustível a um objeto `where`, tolerante às variações
+ * entre sites (ex. "Híbrido (Gasolina)", "Hibrido a gasolina", "Plug-in Hybrid").
+ * Muta `w.fuel` e, quando preciso, acrescenta exclusões via `w.NOT`.
+ */
+function applyFuel(w: any, fuel: string) {
+  const not = (cond: any) => {
+    w.NOT = [...(w.NOT ? (Array.isArray(w.NOT) ? w.NOT : [w.NOT]) : []), cond];
+  };
+
+  if (/plug/i.test(fuel)) {
+    // plug-in híbrido — escrito de muitas formas
+    w.OR = [
+      ...(w.OR ?? []),
+      { fuel: { contains: "plug", mode: "insensitive" } },
+      { fuel: { contains: "phev", mode: "insensitive" } },
+    ];
+    return;
+  }
+  if (/el[ée]tric/i.test(fuel)) {
+    w.fuel = { contains: "létric", mode: "insensitive" }; // létric(o)
+    not({ fuel: { contains: "plug", mode: "insensitive" } });
+    not({ fuel: { contains: "brido", mode: "insensitive" } });
+    return;
+  }
+  if (/h[íi]brid/i.test(fuel)) {
+    // híbrido "normal" (não plug-in)
+    w.fuel = { contains: "brido", mode: "insensitive" };
+    not({ fuel: { contains: "plug", mode: "insensitive" } });
+    not({ fuel: { contains: "phev", mode: "insensitive" } });
+    return;
+  }
+  if (/gasolina/i.test(fuel)) {
+    // gasolina "pura" — exclui híbridos/plug-in que também dizem "gasolina"
+    w.fuel = { contains: "gasolina", mode: "insensitive" };
+    not({ fuel: { contains: "brido", mode: "insensitive" } });
+    not({ fuel: { contains: "plug", mode: "insensitive" } });
+    return;
+  }
+  if (/diesel|gas[oó]leo/i.test(fuel)) {
+    w.fuel = { contains: "diesel", mode: "insensitive" };
+    not({ fuel: { contains: "brido", mode: "insensitive" } });
+    not({ fuel: { contains: "plug", mode: "insensitive" } });
+    return;
+  }
+  if (/gpl/i.test(fuel)) {
+    w.fuel = { contains: "gpl", mode: "insensitive" };
+    return;
+  }
+  w.fuel = { equals: fuel, mode: "insensitive" };
 }
 
 const canonBrand = (name: string) => {
@@ -118,6 +162,50 @@ export async function fetchBrandOptions(opts: { electric?: boolean } = {}) {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** Constrói os filtros Prisma (carros do site + externos) a partir da query. */
+export function buildWheres(q: ListingQuery): { where: any; whereExt: any } {
+  const where: any = { forSale: true, status: "APPROVED" };
+  if (q.marca) where.brand = { name: { in: aliasesFor(q.marca) } };
+  if (q.modelo)
+    where.model = { name: { equals: q.modelo, mode: "insensitive" } };
+  if (q.precoMax) where.price = { lte: +q.precoMax };
+  if (q.fuel) applyFuel(where, q.fuel);
+  if (q.caixa) where.gearbox = q.caixa;
+  if (q.anoMin) where.year = { gte: +q.anoMin };
+  if (q.kmMax) where.km = { lte: +q.kmMax };
+
+  const whereExt: any = { active: true, isDuplicate: false };
+  // marca com aliases: como o filtro de combustível também usa OR, juntamos
+  // as marcas num AND separado para não colidir.
+  if (q.marca) {
+    whereExt.AND = [
+      {
+        OR: aliasesFor(q.marca).map((a) => ({
+          brand: { equals: a, mode: "insensitive" },
+        })),
+      },
+    ];
+  }
+  if (q.modelo) whereExt.model = { contains: q.modelo, mode: "insensitive" };
+  if (q.precoMax) whereExt.price = { lte: +q.precoMax };
+  if (q.fuel) applyFuel(whereExt, q.fuel);
+  if (q.caixa) whereExt.gearbox = q.caixa;
+  if (q.anoMin) whereExt.year = { gte: +q.anoMin };
+  if (q.kmMax) whereExt.km = { lte: +q.kmMax };
+
+  return { where, whereExt };
+}
+
+/** Conta quantos carros (site + externos) correspondem a uma pesquisa. */
+export async function countListings(q: ListingQuery): Promise<number> {
+  const { where, whereExt } = buildWheres(q);
+  const [a, b] = await Promise.all([
+    prisma.car.count({ where }),
+    prisma.scrapedListing.count({ where: whereExt }),
+  ]);
+  return a + b;
+}
+
 /** Uma "página" da lista combinada (carros do site + anúncios externos). */
 export async function fetchListingPage(
   q: ListingQuery,
@@ -143,28 +231,7 @@ export async function fetchListingPage(
           : { firstSeenAt: "desc" };
 
   // ----- filtros (por nome, funciona para ambos) -----
-  const where: any = { forSale: true, status: "APPROVED" };
-  if (q.marca) where.brand = { name: { in: aliasesFor(q.marca) } };
-  if (q.modelo)
-    where.model = { name: { equals: q.modelo, mode: "insensitive" } };
-  if (q.precoMax) where.price = { lte: +q.precoMax };
-  if (q.fuel) where.fuel = fuelFilter(q.fuel);
-  if (q.caixa) where.gearbox = q.caixa;
-  if (q.anoMin) where.year = { gte: +q.anoMin };
-  if (q.kmMax) where.km = { lte: +q.kmMax };
-
-  const whereExt: any = { active: true, isDuplicate: false };
-  if (q.marca) {
-    whereExt.OR = aliasesFor(q.marca).map((a) => ({
-      brand: { equals: a, mode: "insensitive" },
-    }));
-  }
-  if (q.modelo) whereExt.model = { contains: q.modelo, mode: "insensitive" };
-  if (q.precoMax) whereExt.price = { lte: +q.precoMax };
-  if (q.fuel) whereExt.fuel = fuelFilter(q.fuel);
-  if (q.caixa) whereExt.gearbox = q.caixa;
-  if (q.anoMin) whereExt.year = { gte: +q.anoMin };
-  if (q.kmMax) whereExt.km = { lte: +q.kmMax };
+  const { where, whereExt } = buildWheres(q);
 
   // para devolver [offset, offset+limit) da lista combinada e ordenada,
   // basta ir buscar os primeiros (offset+limit) de cada fonte e juntar.

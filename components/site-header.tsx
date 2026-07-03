@@ -1,12 +1,13 @@
 import Link from "next/link";
 import Image from "next/image";
 import { auth, signOut } from "@/lib/auth";
-import { priceAlertCount } from "@/lib/favorites";
+import { priceAlertCount, savedSearchAlertCount } from "@/lib/favorites";
 
 export default async function SiteHeader() {
   const session = await auth();
   const user = session?.user as any;
   const alerts = user?.id ? await priceAlertCount(user.id) : 0;
+  const searchAlerts = user?.id ? await savedSearchAlertCount(user.id) : 0;
   return (
     <>
       <div className="bg-ink py-1 text-center text-[0.82rem] text-[#D9CBAE]">
@@ -40,6 +41,12 @@ export default async function SiteHeader() {
             >
               Elétricos
             </Link>
+            <Link
+              href="/avaliar"
+              className="rounded-full px-3 py-1.5 text-[0.95rem] font-semibold text-n2muted hover:bg-cream hover:text-ink"
+            >
+              Avaliar carro
+            </Link>
             {user && (
               <Link
                 href="/garagem"
@@ -57,6 +64,19 @@ export default async function SiteHeader() {
                 {alerts > 0 && (
                   <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-clay px-1 text-[0.65rem] font-bold text-white">
                     {alerts}
+                  </span>
+                )}
+              </Link>
+            )}
+            {user && (
+              <Link
+                href="/pesquisas"
+                className="relative rounded-full px-3 py-1.5 text-[0.95rem] font-semibold text-n2muted hover:bg-cream hover:text-ink"
+              >
+                Pesquisas
+                {searchAlerts > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-olive px-1 text-[0.65rem] font-bold text-white">
+                    {searchAlerts}
                   </span>
                 )}
               </Link>

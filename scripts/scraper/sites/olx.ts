@@ -178,6 +178,19 @@ function parseCard(
   const year = ykMatch ? intFrom(ykMatch[1]) : null;
   const km = ykMatch ? intFrom(ykMatch[2]) : null;
 
+  // imagem do cartão: o OLX usa o CDN apollo.olxcdn.com; a <img> aparece
+  // antes do link do anúncio no HTML (procuramos a mais próxima antes).
+  const before = html.slice(Math.max(0, atIndex - 2500), atIndex);
+  const imgMatches = before.match(
+    /https:\/\/[a-z0-9.-]*apollo\.olxcdn\.com\/v1\/files\/[^\s"'\\)]+/gi
+  );
+  let image: string | undefined;
+  if (imgMatches?.length) {
+    image = imgMatches[imgMatches.length - 1]
+      .replace(/;s=\d+x\d+.*$/, ";s=800x600")
+      .replace(/&quot;.*$/, "");
+  }
+
   const { brand, model } = brandModelFromSlug(slug);
   const title = slug.replace(/-/g, " ");
 
@@ -200,7 +213,7 @@ function parseCard(
     location: null,
     sellerType: null,
     sellerName: null,
-    imageUrls: [],
+    imageUrls: image ? [image] : [],
   };
 }
 

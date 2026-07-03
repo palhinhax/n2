@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SessionProvider } from "next-auth/react";
 import { useState } from "react";
 import { FavoritesProvider } from "@/components/favorites-context";
+import { CompareProvider } from "@/components/compare-context";
+import CompareTray from "@/components/compare-tray";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -21,7 +23,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
       <QueryClientProvider client={queryClient}>
-        <FavoritesProvider>{children}</FavoritesProvider>
+        <FavoritesProvider>
+          <CompareProvider>
+            {children}
+            <CompareTray />
+          </CompareProvider>
+        </FavoritesProvider>
       </QueryClientProvider>
     </SessionProvider>
   );

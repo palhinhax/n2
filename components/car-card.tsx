@@ -2,6 +2,7 @@ import Link from "next/link";
 import CarArt from "@/components/car-art";
 import FuelBadge from "@/components/fuel-badge";
 import FavoriteButton from "@/components/favorite-button";
+import CompareButton from "@/components/compare-button";
 import { fmtEur, monthly } from "@/lib/constants";
 
 export default function CarCard({ car }: { car: any }) {
@@ -25,6 +26,7 @@ export default function CarCard({ car }: { car: any }) {
         <span className="absolute bottom-2 right-2 rounded-full bg-ink/70 px-2 py-0.5 text-[0.72rem] font-semibold text-white">
           📷 {car.photos?.length || 0}
         </span>
+        <CompareButton kind="car" id={car.id} />
       </div>
       <div className="flex flex-1 flex-col gap-1.5 p-3.5">
         <div className="font-head text-[1.1rem] font-bold leading-tight text-ink">

@@ -34,10 +34,25 @@ model User {
   website     String?
   hours       String? // horário de funcionamento (texto livre)
 
-  posts     Post[]
-  cars      Car[]
-  offers    Offer[]
-  favorites Favorite[]
+  posts        Post[]
+  cars         Car[]
+  offers       Offer[]
+  favorites    Favorite[]
+  savedSearches SavedSearch[]
+}
+
+// Pesquisa guardada por um utilizador, para alertas de novos carros / preço.
+model SavedSearch {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label     String
+  query     String // JSON dos filtros (marca, modelo, precoMax, fuel, …)
+  lastCount Int      @default(0) // nº de resultados na última visita
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 // Favorito/guardar (serve também de "like"). Guarda o preço no momento

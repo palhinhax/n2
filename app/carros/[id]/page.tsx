@@ -15,6 +15,8 @@ import { fmtEur, monthly } from "@/lib/constants";
 import type { Metadata } from "next";
 import JsonLd from "@/components/json-ld";
 import { absolute, clamp, eur, SITE_NAME } from "@/lib/seo";
+import PriceBadge from "@/components/price-badge";
+import { marketStats, ratePrice } from "@/lib/price-intel";
 
 export const dynamic = "force-dynamic";
 
@@ -105,6 +107,13 @@ export default async function CarDetail({
     ["Distrito", car.district || "—"],
   ];
   if (car.evRange) specs.push(["Autonomia (WLTP)", car.evRange + " km ⚡"]);
+
+  const stats = await marketStats({
+    brand: car.brand.name,
+    model: car.model.name,
+    year: car.year,
+  });
+  const rating = ratePrice(car.price, stats);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -279,6 +288,7 @@ export default async function CarDetail({
               <div className="text-[0.8rem] font-semibold text-n2muted2">
                 {car.negotiable ? "✓ Aceita ofertas" : "Preço fixo"}
               </div>
+              <PriceBadge rating={rating} stats={stats} />
               <div className="mt-3">
                 <FavoriteButton
                   kind="car"

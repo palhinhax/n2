@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runScrape } from "../../../../scripts/scraper/engine";
+import { purgeOldEvents } from "@/lib/recommendations";
 
 /**
  * Endpoint chamado pelo Vercel Cron (ver vercel.json).
@@ -29,11 +30,14 @@ export async function GET(request: Request) {
   }
 
   try {
+    // manutenção: eventos de navegação antigos já não influenciam o perfil
+    const purged = await purgeOldEvents().catch(() => 0);
+
     const summary = await runScrape({
       maxPages: BATCH_PAGES,
       deadline: Date.now() + TIME_BUDGET_MS,
     });
-    return NextResponse.json(summary);
+    return NextResponse.json({ ...summary, purgedBrowseEvents: purged });
   } catch (err) {
     console.error("[cron/scrape]", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });

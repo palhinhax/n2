@@ -62,7 +62,7 @@ export default async function Home() {
     getRecommendations({
       visitorId,
       userId: session?.user?.id ?? null,
-      take: 8,
+      take: 7, // a grelha mostra 7 cards + 1 AdSlot
     }),
     fetchBrandOptions(),
     countAllForSale(),

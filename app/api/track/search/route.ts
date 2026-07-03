@@ -7,6 +7,8 @@ import { recordEvent } from "@/lib/recommendations";
 // Regista uma pesquisa com filtros (marca, preço, ano…) para o perfil de
 // gosto. A mesma pesquisa do mesmo visitante em 30 min conta 1x.
 const DEDUPE_MS = 30 * 60 * 1000;
+// tecto por visitante/hora — trava floods de assinaturas sempre diferentes
+const HOURLY_CAP = 40;
 
 export async function POST(req: Request) {
   let body: Record<string, unknown>;
@@ -29,8 +31,16 @@ export async function POST(req: Request) {
   const modelo = str("modelo");
   const fuel = str("fuel");
   const caixa = str("caixa");
-  const precoMax = num("precoMax");
-  const anoMin = num("anoMin");
+  // valores fora do plausível (preço escrito a meio, ano absurdo) não
+  // dizem nada sobre o gosto — descartados
+  const precoMaxRaw = num("precoMax");
+  const precoMax =
+    precoMaxRaw != null && precoMaxRaw >= 500 ? precoMaxRaw : null;
+  const anoMinRaw = num("anoMin");
+  const anoMin =
+    anoMinRaw != null && anoMinRaw >= 1950 && anoMinRaw <= 2100
+      ? anoMinRaw
+      : null;
 
   // pesquisa sem nenhum filtro útil não diz nada sobre o gosto
   if (!marca && !modelo && !fuel && !caixa && !precoMax && !anoMin) {
@@ -49,16 +59,26 @@ export async function POST(req: Request) {
     anoMin,
   });
 
-  const recent = await prisma.browseEvent.findFirst({
-    where: {
-      visitorId: visitor,
-      kind: "SEARCH",
-      query: signature,
-      createdAt: { gte: new Date(Date.now() - DEDUPE_MS) },
-    },
-    select: { id: true },
-  });
-  if (recent) return NextResponse.json({ ok: true, counted: false });
+  const [recent, lastHour] = await Promise.all([
+    prisma.browseEvent.findFirst({
+      where: {
+        visitorId: visitor,
+        kind: "SEARCH",
+        query: signature,
+        createdAt: { gte: new Date(Date.now() - DEDUPE_MS) },
+      },
+      select: { id: true },
+    }),
+    prisma.browseEvent.count({
+      where: {
+        visitorId: visitor,
+        kind: "SEARCH",
+        createdAt: { gte: new Date(Date.now() - 60 * 60 * 1000) },
+      },
+    }),
+  ]);
+  if (recent || lastHour >= HOURLY_CAP)
+    return NextResponse.json({ ok: true, counted: false });
 
   await recordEvent({
     visitorId: visitor,

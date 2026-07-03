@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import type { ListingItem } from "@/lib/car-listing";
 
@@ -22,6 +23,8 @@ const HALF_LIFE_DAYS = 14;
 const MAX_EVENTS = 300;
 // abaixo disto o perfil ainda não é fiável → mostramos populares/recentes
 const MIN_PROFILE_STRENGTH = 4;
+// preço mínimo plausível de um carro (filtra valores escritos a meio)
+const MIN_PRICE = 500;
 
 export interface TasteProfile {
   brands: Map<string, number>; // 0..1 (normalizado ao máximo)
@@ -78,7 +81,11 @@ export function buildTasteProfile(signals: Signal[]): TasteProfile {
 
   for (const s of signals) {
     const w = (KIND_WEIGHT[s.kind] ?? 1) * decay(s.createdAt, now);
-    strength += w;
+    // eventos sem nenhum atributo útil (anúncios mal extraídos) não tornam
+    // o perfil "fiável" — senão personalized=true com perfil vazio
+    const useful =
+      s.brand || s.fuel || s.gearbox || (s.price ?? 0) >= MIN_PRICE || s.year;
+    if (useful) strength += w;
 
     if (s.brand) {
       const key = canonKey(s.brand);
@@ -96,7 +103,9 @@ export function buildTasteProfile(signals: Signal[]): TasteProfile {
       price = price != null ? Math.round(price * 0.8) : null;
       year = year != null ? year + 1 : null;
     }
-    if (price != null && price > 0) {
+    // valores irrealistas (ex. "2" de um preço escrito a meio) estragariam
+    // a média em log-espaço — ignoramos
+    if (price != null && price >= MIN_PRICE) {
       const lp = Math.log(price);
       pSum += lp * w;
       pW += w;
@@ -157,26 +166,47 @@ interface Candidate {
   hasPhoto: boolean;
 }
 
-async function fetchCandidates(excludeOwnerId?: string): Promise<Candidate[]> {
+// cache() do React: a homepage chama isto 2x no mesmo render
+// (recomendações + recentes) — só vai à BD uma vez por pedido.
+const fetchCandidates = cache(async (): Promise<Candidate[]> => {
   const [cars, external] = await Promise.all([
     prisma.car.findMany({
-      where: {
-        forSale: true,
-        status: "APPROVED",
-        ...(excludeOwnerId ? { ownerId: { not: excludeOwnerId } } : {}),
-      },
+      where: { forSale: true, status: "APPROVED" },
       include: {
         brand: true,
         model: true,
         photos: { orderBy: { position: "asc" } },
-        owner: true,
+        owner: { select: { name: true } },
         _count: { select: { offers: true } },
       },
       orderBy: { createdAt: "desc" },
       take: 150,
     }),
     prisma.scrapedListing.findMany({
-      where: { active: true, price: { not: null }, imageUrls: { not: "[]" } },
+      where: {
+        active: true,
+        isDuplicate: false,
+        price: { not: null },
+        imageUrls: { not: "[]" },
+      },
+      // só as colunas que o card e o scoring usam — evita arrastar
+      // description/equipment (pesados) em 400 rows por pageview
+      select: {
+        id: true,
+        title: true,
+        brand: true,
+        model: true,
+        fuel: true,
+        gearbox: true,
+        price: true,
+        year: true,
+        km: true,
+        power: true,
+        imageUrls: true,
+        sellerType: true,
+        location: true,
+        firstSeenAt: true,
+      },
       orderBy: { firstSeenAt: "desc" },
       take: 400,
     }),
@@ -210,7 +240,7 @@ async function fetchCandidates(excludeOwnerId?: string): Promise<Candidate[]> {
     });
   }
   return candidates;
-}
+});
 
 // ---------- scoring ----------
 
@@ -327,16 +357,21 @@ export async function getRecommendations(opts: {
       : Promise.resolve([]),
   ]);
 
-  const signals: Signal[] = events.map((e) => ({
-    kind: e.kind,
-    brand: e.brand,
-    model: e.model,
-    fuel: e.fuel,
-    gearbox: e.gearbox,
-    price: e.price,
-    year: e.year,
-    createdAt: e.createdAt,
-  }));
+  // com sessão, a tabela Favorite é a fonte de verdade dos favoritos —
+  // ignorar os BrowseEvent FAVORITE evita contá-los em dobro e evita que
+  // um favorito removido continue a moldar o perfil
+  const signals: Signal[] = events
+    .filter((e) => !(opts.userId && e.kind === "FAVORITE"))
+    .map((e) => ({
+      kind: e.kind,
+      brand: e.brand,
+      model: e.model,
+      fuel: e.fuel,
+      gearbox: e.gearbox,
+      price: e.price,
+      year: e.year,
+      createdAt: e.createdAt,
+    }));
   // o que já foi visto leva uma penalização leve no score — preferimos
   // mostrar semelhante-mas-novo a repetir o mesmo anúncio
   const seenCarIds = new Set<string>();
@@ -376,8 +411,14 @@ export async function getRecommendations(opts: {
   const profile = buildTasteProfile(signals);
   const personalized = profile.strength >= MIN_PROFILE_STRENGTH;
 
-  const candidates = (await fetchCandidates(opts.userId ?? undefined)).filter(
+  const candidates = (await fetchCandidates()).filter(
     (c) =>
+      // não recomendar os carros do próprio utilizador
+      !(
+        c.item.kind === "car" &&
+        opts.userId &&
+        c.item.data.ownerId === opts.userId
+      ) &&
       // o que já está guardado não precisa de ser recomendado outra vez
       !(c.item.kind === "car" && favoritedCarIds.has(c.item.id)) &&
       !(c.item.kind === "ext" && favoritedListingIds.has(c.item.id))
@@ -436,9 +477,24 @@ export async function getRecentListings(
 export async function countAllForSale(): Promise<number> {
   const [cars, ext] = await Promise.all([
     prisma.car.count({ where: { forSale: true, status: "APPROVED" } }),
-    prisma.scrapedListing.count({ where: { active: true } }),
+    prisma.scrapedListing.count({
+      where: { active: true, isDuplicate: false },
+    }),
   ]);
   return cars + ext;
+}
+
+/**
+ * Apaga eventos com mais de 90 dias (com a meia-vida de 14 dias já pesam
+ * <1.2% no perfil). Chamado pelo cron do scraper para a tabela não crescer
+ * sem limite.
+ */
+export async function purgeOldEvents(days = 90): Promise<number> {
+  const cutoff = new Date(Date.now() - days * 86_400_000);
+  const res = await prisma.browseEvent.deleteMany({
+    where: { createdAt: { lt: cutoff } },
+  });
+  return res.count;
 }
 
 // ---------- registo de eventos ----------

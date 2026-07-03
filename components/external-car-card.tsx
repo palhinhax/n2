@@ -2,6 +2,7 @@ import Link from "next/link";
 import { fmtEur } from "@/lib/constants";
 import FuelBadge from "@/components/fuel-badge";
 import FavoriteButton from "@/components/favorite-button";
+import CompareButton from "@/components/compare-button";
 
 export const SOURCE_LABEL: Record<string, string> = {
   OLX: "OLX",
@@ -51,6 +52,7 @@ export default function ExternalCarCard({ listing }: { listing: any }) {
             📷 {photos.length}
           </span>
         )}
+        <CompareButton kind="listing" id={listing.id} />
       </div>
       <div className="flex flex-1 flex-col gap-1.5 p-3.5">
         <div className="font-head text-[1.1rem] font-bold leading-tight text-ink">

@@ -4,6 +4,7 @@ import SiteFooter from "@/components/site-footer";
 import Filters from "@/components/filters";
 import CarGrid from "@/components/car-grid";
 import TrackSearch from "@/components/track-search";
+import SaveSearchButton from "@/components/save-search-button";
 import { fetchListingPage, fetchBrandOptions } from "@/lib/car-listing";
 import type { Metadata } from "next";
 import { absolute, clamp, SITE_NAME } from "@/lib/seo";
@@ -103,6 +104,7 @@ export default async function Carros({
                     {l}
                   </Link>
                 ))}
+                <SaveSearchButton />
               </div>
             </div>
             <CarGrid
