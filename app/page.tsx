@@ -13,6 +13,7 @@ import SiteFooter from "@/components/site-footer";
 import CarCard from "@/components/car-card";
 import ExternalCarCard from "@/components/external-car-card";
 import AdSlot from "@/components/ad-slot";
+import BrandCombobox from "@/components/brand-combobox";
 import type { ListingItem } from "@/lib/car-listing";
 import JsonLd from "@/components/json-ld";
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from "@/lib/seo";
@@ -103,14 +104,11 @@ export default async function Home() {
           >
             <div>
               <label className="flabel">Marca</label>
-              <select name="marca" className="finput">
-                <option value="">Todas</option>
-                {brands.map((b) => (
-                  <option key={b.name} value={b.name}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
+              <BrandCombobox
+                name="marca"
+                brands={brands.map((b) => b.name)}
+                placeholder="Todas"
+              />
             </div>
             <div>
               <label className="flabel">Preço até</label>

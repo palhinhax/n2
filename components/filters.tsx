@@ -2,6 +2,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRef, useState } from "react";
 import { FUELS, GEARS, BODY_TYPES, CAR_COLOR_NAMES } from "@/lib/constants";
+import BrandCombobox from "@/components/brand-combobox";
 
 export default function Filters({
   brands,
@@ -80,22 +81,15 @@ export default function Filters({
       <h3 className="font-head text-[1.1rem] font-bold text-ink">Filtros</h3>
       <div>
         <label className="flabel">Marca</label>
-        <select
+        <BrandCombobox
           id="f-marca"
-          className="finput"
+          brands={brands.map((b) => b.name)}
           value={brandName}
-          onChange={(e) => {
-            setBrandName(e.target.value);
-            applyNow({ marca: e.target.value, modelo: "" });
+          onSelect={(v) => {
+            setBrandName(v);
+            applyNow({ marca: v, modelo: "" });
           }}
-        >
-          <option value="">Todas</option>
-          {brands.map((b) => (
-            <option key={b.name} value={b.name}>
-              {b.name}
-            </option>
-          ))}
-        </select>
+        />
       </div>
       <div>
         <label className="flabel">Modelo</label>

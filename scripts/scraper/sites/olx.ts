@@ -145,8 +145,9 @@ function brandModelFromSlug(slug: string): {
         .slice(b.length + 1)
         .replace(/-/g, " ")
         .trim();
-      const model = rest ? rest.split(" ").slice(0, 2).join(" ") : null;
-      return { brand: label, model };
+      // devolve o resto todo — o normalizador (lib/vehicle-normalize) separa
+      // depois modelo vs. versão contra a lista de modelos conhecidos.
+      return { brand: label, model: rest || null };
     }
   }
   return { brand: null, model: null };

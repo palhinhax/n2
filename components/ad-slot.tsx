@@ -1,4 +1,10 @@
-// Publicidade fake — o modelo de negócio do site grátis
+// Publicidade de demonstração — escondida em produção até haver anunciantes
+// reais (placeholders fictícios minam a confiança num site novo).
+// Para ativar em dev/preview: NEXT_PUBLIC_SHOW_DEMO_ADS=1
+const SHOW_ADS =
+  process.env.NEXT_PUBLIC_SHOW_DEMO_ADS === "1" ||
+  process.env.NODE_ENV !== "production";
+
 const ADS = [
   {
     title: "Seguro Auto Miradouro",
@@ -29,6 +35,7 @@ export default function AdSlot({
   variant?: "card" | "banner";
   index?: number;
 }) {
+  if (!SHOW_ADS) return null;
   const ad = ADS[index % ADS.length];
   if (variant === "banner") {
     return (

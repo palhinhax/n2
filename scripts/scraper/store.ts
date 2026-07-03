@@ -2,24 +2,34 @@ import { prisma } from "../../lib/prisma";
 import type { Listing } from "./types";
 import { ensureBrandModel } from "./brands";
 import { dedupeKeyFor } from "./dedupe";
+import { normalizeVehicle } from "../../lib/vehicle-normalize";
 
 export async function upsertListing(
   l: Listing
 ): Promise<"created" | "updated"> {
   const now = new Date();
 
+  // normaliza marca/modelo/versão e gera um título limpo
+  const nv = normalizeVehicle({
+    brand: l.brand,
+    model: l.model,
+    title: l.title,
+  });
+
   // regista marca/modelo novos na tabela oficial (com normalização)
   try {
-    await ensureBrandModel(l.brand, l.model);
+    await ensureBrandModel(nv.brand ?? l.brand, l.model ?? l.title);
   } catch {
     // não bloqueia o scraping se falhar o registo da marca
   }
 
   const data: Record<string, unknown> = {
     url: l.url,
-    title: l.title,
-    brand: l.brand ?? null,
-    model: l.model ?? null,
+    title: nv.title,
+    rawTitle: l.title,
+    brand: nv.brand ?? l.brand ?? null,
+    model: nv.model ?? l.model ?? null,
+    version: nv.version,
     year: l.year ?? null,
     km: l.km ?? null,
     fuel: l.fuel ?? null,
@@ -61,9 +71,7 @@ export async function upsertListing(
     data: {
       source: l.source,
       externalId: l.externalId,
-      ...data,
-      url: l.url,
-      title: l.title,
+      ...(data as any),
     },
   });
   return "created";

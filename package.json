@@ -18,6 +18,7 @@
     "db:seed": "npx tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "scrape": "tsx scripts/scraper/run.ts",
+    "normalize:listings": "tsx scripts/normalize-listings.ts",
     "prepare": "husky",
     "setup": "prisma generate && prisma db push && npm run db:seed"
   },

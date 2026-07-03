@@ -203,9 +203,11 @@ model ScrapedListing {
   source      String // OLX | STANDVIRTUAL | PISCAPISCA
   externalId  String // id do anúncio no site de origem
   url         String // link para o anúncio original
-  title       String
+  title       String // título limpo "Marca Modelo Versão" (normalizado)
+  rawTitle    String? // título original do site de origem (antes da limpeza)
   brand       String?
   model       String?
+  version     String? // motorização/acabamento — ex. "1.5 dCi Nacional"
   year        Int?
   km          Int?
   fuel        String?

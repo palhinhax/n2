@@ -111,6 +111,7 @@ export default async function ExternalCarDetail({
   const specs: [string, string | null][] = [
     ["Marca", listing.brand],
     ["Modelo", listing.model],
+    ["Versão", listing.version],
     ["Ano", listing.year?.toString() ?? null],
     ["Mês de registo", listing.registrationDate],
     [
