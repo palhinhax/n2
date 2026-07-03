@@ -58,7 +58,13 @@ export async function upsertListing(
     return "updated";
   }
   await prisma.scrapedListing.create({
-    data: { source: l.source, externalId: l.externalId, ...data },
+    data: {
+      source: l.source,
+      externalId: l.externalId,
+      ...data,
+      url: l.url,
+      title: l.title,
+    },
   });
   return "created";
 }

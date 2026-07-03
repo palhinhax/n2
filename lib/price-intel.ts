@@ -133,7 +133,7 @@ export async function marketStatsBatch(
     take: 8000,
   });
 
-  for (const [key, k] of uniq) {
+  for (const [key, k] of Array.from(uniq.entries())) {
     const aliases = brandAliases(k.brand).map((a) => a.toLowerCase());
     const ml = k.model.toLowerCase();
     const prices = rows
