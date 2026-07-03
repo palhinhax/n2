@@ -8,6 +8,7 @@ const SITES = [
   { key: "STANDVIRTUAL", label: "Standvirtual" },
   { key: "OLX", label: "OLX" },
   { key: "PISCAPISCA", label: "Pisca Pisca" },
+  { key: "AUTOSAPO", label: "Auto SAPO" },
 ];
 
 const COMMANDS: [string, string][] = [

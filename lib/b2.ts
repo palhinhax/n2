@@ -20,6 +20,10 @@ function client() {
       accessKeyId: process.env.B2_KEY_ID!,
       secretAccessKey: process.env.B2_APP_KEY!,
     },
+    // O B2 não suporta os checksums que o SDK v3 adiciona por omissão;
+    // sem isto o PUT presigned falha (ou dispara preflight desnecessário).
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
   });
 }
 
@@ -31,6 +35,23 @@ export async function presignUpload(key: string, contentType: string) {
   });
   const uploadUrl = await getSignedUrl(client(), cmd, { expiresIn: 600 });
   return { uploadUrl, publicUrl: publicUrl(key) };
+}
+
+/** Upload direto pelo servidor (sem CORS no browser). */
+export async function uploadObject(
+  key: string,
+  body: Buffer | Uint8Array,
+  contentType: string
+) {
+  await client().send(
+    new PutObjectCommand({
+      Bucket: process.env.B2_BUCKET,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+    })
+  );
+  return { key, publicUrl: publicUrl(key) };
 }
 
 export function publicUrl(key: string) {

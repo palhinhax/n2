@@ -26,9 +26,17 @@ export default async function Garagem() {
       reminders: { where: { done: false }, orderBy: { dueDate: "asc" } },
       offers: { where: { status: "PENDING" } },
       views: { select: { visitorHash: true, createdAt: true } },
+      _count: { select: { favorites: true, offers: true } },
     },
     orderBy: { createdAt: "desc" },
   });
+
+  // totais gerais de todos os anúncios
+  const totalViews = new Set(
+    cars.flatMap((c) => c.views.map((v) => v.visitorHash))
+  ).size;
+  const totalFavorites = cars.reduce((s, c) => s + c._count.favorites, 0);
+  const totalOffers = cars.reduce((s, c) => s + c._count.offers, 0);
 
   const soon = (d: Date) => (d.getTime() - Date.now()) / 86400000 < 30;
   const weekAgo = Date.now() - 7 * 86400000;
@@ -59,6 +67,25 @@ export default async function Garagem() {
             + Adicionar carro
           </Link>
         </div>
+
+        {cars.length > 0 && (
+          <div className="mb-6 grid grid-cols-3 gap-3">
+            {[
+              ["👁 Visualizações", totalViews],
+              ["♥ Guardados", totalFavorites],
+              ["✉ Ofertas", totalOffers],
+            ].map(([l, n]) => (
+              <div key={l as string} className="n2-card p-4 text-center">
+                <div className="font-head text-[1.9rem] font-extrabold text-ink">
+                  {(n as number).toLocaleString("pt-PT")}
+                </div>
+                <div className="text-[0.82rem] font-semibold text-n2muted">
+                  {l}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {cars.length === 0 ? (
           <div className="n2-card p-14 text-center">

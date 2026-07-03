@@ -1,3 +1,8 @@
+// Cookie de 1ª parte que identifica um visitante (com ou sem login).
+// Aqui (módulo sem imports) para poder ser usado no middleware (edge).
+export const VISITOR_COOKIE = "n2vid";
+export const VISITOR_MAX_AGE = 60 * 60 * 24 * 365; // 1 ano
+
 export const FUELS = [
   "Gasolina",
   "Diesel",

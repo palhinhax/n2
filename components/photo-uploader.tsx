@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 
-// Upload direto para Backblaze B2 via URL pré-assinado.
+// Upload pelo servidor (o servidor envia para o Backblaze B2 — sem CORS).
 // Sem B2 configurado no .env, mostra aviso e o carro usa a ilustração.
 export default function PhotoUploader({
   photos,
@@ -20,25 +20,18 @@ export default function PhotoUploader({
     setMsg("");
     const added: any[] = [];
     for (const file of files.slice(0, 8 - photos.length)) {
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: file.name, contentType: file.type }),
-      });
-      const j = await res.json();
-      if (!res.ok || !j.configured) {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const j = await res.json().catch(() => ({}));
+      if (res.status === 501 || j.configured === false) {
         setMsg(
           "⚠ Backblaze B2 não configurado — o anúncio usa a ilustração até configurares o .env."
         );
         break;
       }
-      const up = await fetch(j.uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (up.ok) added.push({ key: j.key, url: j.publicUrl });
-      else setMsg("Erro no upload de " + file.name);
+      if (res.ok && j.key) added.push({ key: j.key, url: j.publicUrl });
+      else setMsg(j.error || "Erro no upload de " + file.name);
     }
     if (added.length) onChange([...photos, ...added]);
     setBusy(false);

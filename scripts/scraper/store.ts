@@ -1,10 +1,20 @@
 import { prisma } from "../../lib/prisma";
 import type { Listing } from "./types";
+import { ensureBrandModel } from "./brands";
+import { dedupeKeyFor } from "./dedupe";
 
 export async function upsertListing(
   l: Listing
 ): Promise<"created" | "updated"> {
   const now = new Date();
+
+  // regista marca/modelo novos na tabela oficial (com normalização)
+  try {
+    await ensureBrandModel(l.brand, l.model);
+  } catch {
+    // não bloqueia o scraping se falhar o registo da marca
+  }
+
   const data = {
     url: l.url,
     title: l.title,
@@ -21,6 +31,7 @@ export async function upsertListing(
     sellerType: l.sellerType ?? null,
     sellerName: l.sellerName ?? null,
     imageUrls: JSON.stringify(l.imageUrls ?? []),
+    dedupeKey: dedupeKeyFor(l),
     active: true,
     lastSeenAt: now,
   };

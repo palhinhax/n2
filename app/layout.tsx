@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/ui/toaster";
+import { SITE_URL, SITE_NAME, SITE_TAGLINE, SITE_DESCRIPTION } from "@/lib/seo";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -16,9 +17,42 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Nacional 2 — Compra e vende carros. Grátis.",
-  description:
-    "O marketplace de carros 100% grátis. Garagem digital, lembretes de IPO e manutenção, ofertas diretas e anúncios sem comissões.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    template: `%s | ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  keywords: [
+    "carros usados",
+    "comprar carro",
+    "vender carro",
+    "stand automóvel",
+    "carros baratos",
+    "carros elétricos usados",
+    "anúncios de carros",
+    "Portugal",
+  ],
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    locale: "pt_PT",
+    url: SITE_URL,
+    siteName: SITE_NAME,
+    title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    description: SITE_DESCRIPTION,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    description: SITE_DESCRIPTION,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-image-preview": "large" },
+  },
   icons: {
     icon: [
       { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },

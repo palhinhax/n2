@@ -20,9 +20,47 @@ model User {
   phone        String?
   district     String?
   createdAt    DateTime @default(now())
-  posts        Post[]
-  cars         Car[]
-  offers       Offer[]
+
+  // ---- Perfil / conta ----
+  accountType String  @default("PARTICULAR") // PARTICULAR | STAND
+  avatarUrl   String? // foto de perfil ou logótipo do stand
+  bio         String? // "sobre mim" / "sobre o stand"
+  address     String?
+  postalCode  String?
+  city        String?
+  // dados de stand
+  standName   String? // nome comercial
+  nif         String?
+  website     String?
+  hours       String? // horário de funcionamento (texto livre)
+
+  posts     Post[]
+  cars      Car[]
+  offers    Offer[]
+  favorites Favorite[]
+}
+
+// Favorito/guardar (serve também de "like"). Guarda o preço no momento
+// para detetar descidas/subidas e notificar o utilizador.
+model Favorite {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // um favorito aponta para um carro do site OU um anúncio externo
+  carId     String?
+  car       Car?            @relation(fields: [carId], references: [id], onDelete: Cascade)
+  listingId String?
+  listing   ScrapedListing? @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  priceWhenSaved Int? // preço no momento em que foi guardado
+  seenPrice      Int? // último preço já "visto" pelo utilizador (para notificações)
+  createdAt      DateTime @default(now())
+
+  @@unique([userId, carId])
+  @@unique([userId, listingId])
+  @@index([carId])
+  @@index([listingId])
 }
 
 model Post {
@@ -84,6 +122,31 @@ model Car {
   offers    Offer[]
   reminders Reminder[]
   views     CarView[]
+  favorites Favorite[]
+}
+
+// Evento de navegação para o motor de recomendações da homepage.
+// Características denormalizadas (marca/preço/ano/…) para o perfil de gosto
+// funcionar igual para carros do site e anúncios externos, e para os eventos
+// sobreviverem quando um anúncio é apagado. Sem FKs de propósito.
+model BrowseEvent {
+  id        String   @id @default(cuid())
+  visitorId String // cookie n2vid — existe mesmo sem login
+  userId    String? // preenchido quando autenticado (junta histórico anónimo + conta)
+  kind      String // VIEW | SEARCH | FAVORITE
+  carId     String?
+  listingId String?
+  brand     String?
+  model     String?
+  fuel      String?
+  gearbox   String?
+  price     Int? // em SEARCH é o precoMax do filtro
+  year      Int? // em SEARCH é o anoMin do filtro
+  query     String? // assinatura da pesquisa (dedupe de SEARCH)
+  createdAt DateTime @default(now())
+
+  @@index([visitorId, createdAt])
+  @@index([userId, createdAt])
 }
 
 model CarView {
@@ -157,10 +220,18 @@ model ScrapedListing {
   co2              Int?
   detailsFetchedAt DateTime? // null = ainda não enriquecido
 
+  // deduplicação entre fontes (mesmo carro em vários sites)
+  dedupeKey   String? // brand|model|year|km normalizado
+  isDuplicate Boolean @default(false) // true = cópia escondida da listagem
+
+  favorites Favorite[]
+
   @@unique([source, externalId])
   @@index([source, active])
   @@index([brand, model])
   @@index([price])
+  @@index([dedupeKey])
+  @@index([active, isDuplicate])
 }
 
 // Estado/cursor do scraper (para retomar entre execuções — ex. cron da Vercel)

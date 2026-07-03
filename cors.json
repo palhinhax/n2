@@ -1,0 +1,10 @@
+[
+  {
+    "corsRuleName": "uploadsApp",
+    "allowedOrigins": ["http://localhost:3000", "https://o-teu-dominio.com"],
+    "allowedOperations": ["s3_put", "s3_get", "s3_head"],
+    "allowedHeaders": ["*"],
+    "exposeHeaders": ["etag"],
+    "maxAgeSeconds": 3600
+  }
+]

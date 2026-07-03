@@ -26,6 +26,7 @@ export default async function ManageCar({
       photos: { orderBy: { position: "asc" } },
       reminders: { orderBy: { dueDate: "asc" } },
       offers: { include: { buyer: true }, orderBy: { createdAt: "desc" } },
+      _count: { select: { offers: true, favorites: true } },
     },
   });
   if (
@@ -34,6 +35,13 @@ export default async function ManageCar({
       (session!.user as any).role !== "ADMIN")
   )
     notFound();
+
+  // visualizações únicas (pessoas distintas que viram o anúncio)
+  const viewsGroups = await prisma.carView.groupBy({
+    by: ["visitorHash"],
+    where: { carId: car.id },
+  });
+  const uniqueViews = viewsGroups.length;
 
   const statusText: Record<string, string> = {
     GARAGE: "Na garagem (não está à venda)",
@@ -94,10 +102,35 @@ export default async function ManageCar({
               </span>
             </p>
           </div>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            <Link
+              href={`/garagem/${car.id}/editar`}
+              className="btn-olive btn-sm"
+            >
+              Editar
+            </Link>
             <DeleteCar carId={car.id} />
           </div>
         </div>
+
+        {/* totais do anúncio */}
+        <div className="mb-6 grid grid-cols-3 gap-3">
+          {[
+            ["👁 Visualizações", uniqueViews],
+            ["♥ Guardados", car._count.favorites],
+            ["✉ Ofertas", car._count.offers],
+          ].map(([l, n]) => (
+            <div key={l as string} className="n2-card p-4 text-center">
+              <div className="font-head text-[1.8rem] font-extrabold text-ink">
+                {(n as number).toLocaleString("pt-PT")}
+              </div>
+              <div className="text-[0.82rem] font-semibold text-n2muted">
+                {l}
+              </div>
+            </div>
+          ))}
+        </div>
+
         <div className="grid items-start gap-4 md:grid-cols-2">
           <div className="flex flex-col gap-4">
             <SalePanel

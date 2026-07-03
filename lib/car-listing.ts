@@ -35,6 +35,89 @@ function fuelFilter(fuel: string) {
   return { equals: fuel, mode: "insensitive" as const };
 }
 
+const canonBrand = (name: string) => {
+  const t = name.trim();
+  if (["vw", "volkswagen"].includes(t.toLowerCase())) return "Volkswagen";
+  return t;
+};
+
+/**
+ * Lista de marcas/modelos para os filtros.
+ * - normal: tabela Brand + todos os distintos do scraping.
+ * - electric: apenas marcas/modelos que tenham carros elétricos.
+ */
+export async function fetchBrandOptions(opts: { electric?: boolean } = {}) {
+  const electric = opts.electric === true;
+  const fuelWhere = electric
+    ? { fuel: { contains: "létric", mode: "insensitive" as const } }
+    : {};
+
+  const [brandTable, cars, scrapedBrands, scrapedModels] = await Promise.all([
+    electric
+      ? Promise.resolve([] as { name: string; models: { name: string }[] }[])
+      : prisma.brand.findMany({
+          orderBy: { name: "asc" },
+          include: { models: { orderBy: { name: "asc" } } },
+        }),
+    electric
+      ? prisma.car.findMany({
+          where: { fuel: { contains: "létric", mode: "insensitive" } },
+          select: {
+            brand: { select: { name: true } },
+            model: { select: { name: true } },
+          },
+        })
+      : Promise.resolve([] as any[]),
+    prisma.scrapedListing.findMany({
+      where: { active: true, brand: { not: null }, ...fuelWhere },
+      select: { brand: true },
+      distinct: ["brand"],
+    }),
+    prisma.scrapedListing.findMany({
+      where: {
+        active: true,
+        brand: { not: null },
+        model: { not: null },
+        ...fuelWhere,
+      },
+      select: { brand: true, model: true },
+      distinct: ["brand", "model"],
+    }),
+  ]);
+
+  const brandMap = new Map<string, { name: string; models: Set<string> }>();
+  const addBrand = (name: string) => {
+    const key = name.toLowerCase();
+    let e = brandMap.get(key);
+    if (!e) {
+      e = { name, models: new Set<string>() };
+      brandMap.set(key, e);
+    }
+    return e;
+  };
+  for (const b of brandTable) {
+    const e = addBrand(b.name);
+    for (const m of b.models) e.models.add(m.name);
+  }
+  for (const c of cars) {
+    if (!c.brand?.name) continue;
+    const e = addBrand(canonBrand(c.brand.name));
+    if (c.model?.name) e.models.add(c.model.name);
+  }
+  for (const r of scrapedBrands) if (r.brand) addBrand(canonBrand(r.brand));
+  for (const r of scrapedModels) {
+    if (!r.brand) continue;
+    const e = addBrand(canonBrand(r.brand));
+    if (r.model) e.models.add(r.model);
+  }
+  return Array.from(brandMap.values())
+    .map((b) => ({
+      name: b.name,
+      models: Array.from(b.models).sort((a, c) => a.localeCompare(c)),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 /** Uma "página" da lista combinada (carros do site + anúncios externos). */
 export async function fetchListingPage(
   q: ListingQuery,
@@ -70,7 +153,7 @@ export async function fetchListingPage(
   if (q.anoMin) where.year = { gte: +q.anoMin };
   if (q.kmMax) where.km = { lte: +q.kmMax };
 
-  const whereExt: any = { active: true };
+  const whereExt: any = { active: true, isDuplicate: false };
   if (q.marca) {
     whereExt.OR = aliasesFor(q.marca).map((a) => ({
       brand: { equals: a, mode: "insensitive" },

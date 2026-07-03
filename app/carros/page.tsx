@@ -1,12 +1,42 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import Filters from "@/components/filters";
 import CarGrid from "@/components/car-grid";
-import { fetchListingPage } from "@/lib/car-listing";
+import TrackSearch from "@/components/track-search";
+import { fetchListingPage, fetchBrandOptions } from "@/lib/car-listing";
+import type { Metadata } from "next";
+import { absolute, clamp, SITE_NAME } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Record<string, string>;
+}): Promise<Metadata> {
+  const marca = searchParams.marca?.trim();
+  const modelo = searchParams.modelo?.trim();
+  const alvo = [marca, modelo].filter(Boolean).join(" ");
+  const title = alvo
+    ? `${alvo} usados à venda`
+    : "Carros usados à venda em Portugal";
+  const description = clamp(
+    alvo
+      ? `Anúncios de ${alvo} usados em Portugal. Compara preços, km e ano de particulares e stands no ${SITE_NAME}. Grátis.`
+      : `Milhares de carros usados à venda em Portugal, de particulares e stands. Filtra por marca, preço, km e combustível no ${SITE_NAME}. Grátis.`
+  );
+  const params = new URLSearchParams();
+  if (marca) params.set("marca", marca);
+  if (modelo) params.set("modelo", modelo);
+  const qs = params.toString();
+  return {
+    title,
+    description,
+    alternates: { canonical: absolute("/carros" + (qs ? "?" + qs : "")) },
+    openGraph: { title: `${title} | ${SITE_NAME}`, description },
+  };
+}
 
 export default async function Carros({
   searchParams,
@@ -15,58 +45,8 @@ export default async function Carros({
 }) {
   const ordenar = searchParams.ordenar || "recentes";
 
-  // ----- Marcas/modelos: junta os do site (tabela Brand) com os do scraping -----
-  const canonBrand = (name: string) => {
-    const t = name.trim();
-    if (["vw", "volkswagen"].includes(t.toLowerCase())) return "Volkswagen";
-    return t;
-  };
+  const brands = await fetchBrandOptions();
 
-  const [brandTable, scrapedBrands, scrapedModels] = await Promise.all([
-    prisma.brand.findMany({
-      orderBy: { name: "asc" },
-      include: { models: { orderBy: { name: "asc" } } },
-    }),
-    prisma.scrapedListing.findMany({
-      where: { active: true, brand: { not: null } },
-      select: { brand: true },
-      distinct: ["brand"],
-    }),
-    prisma.scrapedListing.findMany({
-      where: { active: true, brand: { not: null }, model: { not: null } },
-      select: { brand: true, model: true },
-      distinct: ["brand", "model"],
-    }),
-  ]);
-
-  const brandMap = new Map<string, { name: string; models: Set<string> }>();
-  const addBrand = (name: string) => {
-    const key = name.toLowerCase();
-    let e = brandMap.get(key);
-    if (!e) {
-      e = { name, models: new Set<string>() };
-      brandMap.set(key, e);
-    }
-    return e;
-  };
-  for (const b of brandTable) {
-    const e = addBrand(b.name);
-    for (const m of b.models) e.models.add(m.name);
-  }
-  for (const r of scrapedBrands) if (r.brand) addBrand(canonBrand(r.brand));
-  for (const r of scrapedModels) {
-    if (!r.brand) continue;
-    const e = addBrand(canonBrand(r.brand));
-    if (r.model) e.models.add(r.model);
-  }
-  const brands = Array.from(brandMap.values())
-    .map((b) => ({
-      name: b.name,
-      models: Array.from(b.models).sort((a, c) => a.localeCompare(c)),
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  // ----- Filtros por NOME (funciona para carros do site e externos) -----
   // primeira página da lista combinada (o resto carrega por scroll infinito)
   const query: Record<string, string> = {};
   for (const k of [
@@ -93,6 +73,7 @@ export default async function Carros({
   return (
     <div className="flex min-h-screen flex-col bg-cream">
       <SiteHeader />
+      <TrackSearch query={query} />
       <div className="mx-auto w-[min(1240px,94%)] py-6">
         <div className="mb-3 text-[0.88rem] font-medium text-n2muted">
           <Link href="/" className="hover:underline">

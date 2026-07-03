@@ -2,10 +2,17 @@ import { politeDelay } from "./http";
 import { olx } from "./sites/olx";
 import { piscapisca } from "./sites/piscapisca";
 import { standvirtual } from "./sites/standvirtual";
+import { autosapo } from "./sites/autosapo";
 import { deactivateStale, getState, setState, upsertListing } from "./store";
+import { dedupeListings } from "./dedupe";
 import type { SiteAdapter, Source } from "./types";
 
-export const ADAPTERS: SiteAdapter[] = [standvirtual, piscapisca, olx];
+export const ADAPTERS: SiteAdapter[] = [
+  standvirtual,
+  piscapisca,
+  olx,
+  autosapo,
+];
 
 export const SCRAPE_INTERVAL_DAYS = Number(
   process.env.SCRAPE_INTERVAL_DAYS ?? 3
@@ -159,13 +166,16 @@ export async function runScrape(opts: RunOptions = {}): Promise<RunSummary> {
 
   if (allFinished && cycle.startedAt) {
     summary.deactivated = await deactivateStale(new Date(cycle.startedAt));
+    // deduplicação entre fontes (esconde o mesmo carro repetido)
+    const dedupe = await dedupeListings();
     await setState(CYCLE_KEY, {
       startedAt: null,
       finishedAt: new Date().toISOString(),
     });
     summary.cycleFinished = true;
     console.log(
-      `[ciclo] completo — ${summary.deactivated} anúncios desativados`
+      `[ciclo] completo — ${summary.deactivated} desativados · ` +
+        `${dedupe.duplicates} duplicados escondidos (${dedupe.groups} grupos)`
     );
   }
 

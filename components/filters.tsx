@@ -5,8 +5,14 @@ import { FUELS, GEARS } from "@/lib/constants";
 
 export default function Filters({
   brands,
+  hideFuel = false,
+  basePath = "/carros",
+  fixed = {},
 }: {
   brands: { name: string; models: string[] }[];
+  hideFuel?: boolean;
+  basePath?: string;
+  fixed?: Record<string, string>;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -28,7 +34,10 @@ export default function Filters({
   // aplica os filtros lendo os valores atuais (com possíveis overrides)
   function applyNow(overrides: Record<string, string> = {}) {
     const params = new URLSearchParams();
+    // parâmetros fixos da página (ex. fuel=Elétrico na página de elétricos)
+    for (const [k, v] of Object.entries(fixed)) if (v) params.set(k, v);
     for (const k of KEYS) {
+      if (hideFuel && k === "fuel") continue; // combustível é fixo aqui
       const v =
         k in overrides
           ? overrides[k]
@@ -36,7 +45,7 @@ export default function Filters({
             "";
       if (v) params.set(k, v);
     }
-    router.push("/carros?" + params.toString());
+    router.push(basePath + "?" + params.toString());
   }
 
   // números: espera o utilizador parar de escrever antes de aplicar
@@ -97,20 +106,22 @@ export default function Filters({
           onChange={applyDebounced}
         />
       </div>
-      <div>
-        <label className="flabel">Combustível</label>
-        <select
-          id="f-fuel"
-          className="finput"
-          defaultValue={fuel}
-          onChange={() => applyNow()}
-        >
-          <option value="">Todos</option>
-          {FUELS.map((f) => (
-            <option key={f}>{f}</option>
-          ))}
-        </select>
-      </div>
+      {!hideFuel && (
+        <div>
+          <label className="flabel">Combustível</label>
+          <select
+            id="f-fuel"
+            className="finput"
+            defaultValue={fuel}
+            onChange={() => applyNow()}
+          >
+            <option value="">Todos</option>
+            {FUELS.map((f) => (
+              <option key={f}>{f}</option>
+            ))}
+          </select>
+        </div>
+      )}
       <div>
         <label className="flabel">Caixa</label>
         <select
@@ -156,7 +167,12 @@ export default function Filters({
       />
       <button
         className="btn-line btn-xs"
-        onClick={() => router.push("/carros")}
+        onClick={() => {
+          const p = new URLSearchParams();
+          for (const [k, v] of Object.entries(fixed)) if (v) p.set(k, v);
+          const qs = p.toString();
+          router.push(basePath + (qs ? "?" + qs : ""));
+        }}
       >
         Limpar tudo
       </button>

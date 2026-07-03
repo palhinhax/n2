@@ -1,4 +1,4 @@
-export type Source = "OLX" | "STANDVIRTUAL" | "PISCAPISCA";
+export type Source = "OLX" | "STANDVIRTUAL" | "PISCAPISCA" | "AUTOSAPO";
 
 export interface Listing {
   source: Source;

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import CarArt from "@/components/car-art";
+import FuelBadge from "@/components/fuel-badge";
+import FavoriteButton from "@/components/favorite-button";
 import { fmtEur, monthly } from "@/lib/constants";
 
 export default function CarCard({ car }: { car: any }) {
@@ -10,11 +12,10 @@ export default function CarCard({ car }: { car: any }) {
       className="n2-card flex flex-col overflow-hidden transition hover:-translate-y-1 hover:shadow-warmlg"
     >
       <div className="relative flex aspect-[16/10] items-center justify-center bg-gradient-to-b from-[#FCF4E2] to-[#F4E2BC]">
-        {car.fuel === "Elétrico" && (
-          <span className="n2-tag absolute left-2 top-2 z-10 bg-olive">
-            ⚡ {car.evRange ? `${car.evRange} km` : "Elétrico"}
-          </span>
+        {car.fuel && (
+          <FuelBadge fuel={car.fuel} className="absolute left-2 top-2 z-10" />
         )}
+        <FavoriteButton kind="car" id={car.id} />
         {photo ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={photo.url} alt="" className="h-full w-full object-cover" />

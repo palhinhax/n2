@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { fmtEur } from "@/lib/constants";
+import FuelBadge from "@/components/fuel-badge";
+import FavoriteButton from "@/components/favorite-button";
 
 export const SOURCE_LABEL: Record<string, string> = {
   OLX: "OLX",
   STANDVIRTUAL: "Standvirtual",
   PISCAPISCA: "Pisca Pisca",
+  AUTOSAPO: "Auto SAPO",
 };
 
 export default function ExternalCarCard({ listing }: { listing: any }) {
@@ -22,9 +25,13 @@ export default function ExternalCarCard({ listing }: { listing: any }) {
       className="n2-card flex flex-col overflow-hidden transition hover:-translate-y-1 hover:shadow-warmlg"
     >
       <div className="relative aspect-[16/10] overflow-hidden bg-gradient-to-b from-[#FCF4E2] to-[#F4E2BC]">
-        <span className="n2-tag absolute left-2 top-2 z-10 bg-bark">
-          {SOURCE_LABEL[listing.source] ?? listing.source}
-        </span>
+        {listing.fuel && (
+          <FuelBadge
+            fuel={listing.fuel}
+            className="absolute left-2 top-2 z-10"
+          />
+        )}
+        <FavoriteButton kind="listing" id={listing.id} />
         {photo ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -58,14 +65,10 @@ export default function ExternalCarCard({ listing }: { listing: any }) {
           {listing.km != null && (
             <span>{listing.km.toLocaleString("pt-PT")} km</span>
           )}
-          {listing.fuel && <span>{listing.fuel}</span>}
         </div>
         <div className="mt-auto flex items-end justify-between border-t border-outline pt-2">
           <span className="font-head text-[1.35rem] font-extrabold text-ink">
             {listing.price != null ? fmtEur(listing.price) : "Sob consulta"}
-          </span>
-          <span className="text-right text-[0.72rem] font-semibold text-n2muted">
-            anúncio externo
           </span>
         </div>
         <div className="flex justify-between text-[0.74rem] font-medium text-n2muted2">

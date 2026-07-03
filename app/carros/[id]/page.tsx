@@ -8,11 +8,54 @@ import CarArt from "@/components/car-art";
 import CarCard from "@/components/car-card";
 import AdSlot from "@/components/ad-slot";
 import OfferPanel from "@/components/offer-panel";
+import FavoriteButton from "@/components/favorite-button";
 import TrackView from "@/components/track-view";
 import AdminActions from "@/components/admin-actions";
 import { fmtEur, monthly } from "@/lib/constants";
+import type { Metadata } from "next";
+import JsonLd from "@/components/json-ld";
+import { absolute, clamp, eur, SITE_NAME } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { id: string };
+}): Promise<Metadata> {
+  const car = await prisma.car.findUnique({
+    where: { id: params.id },
+    include: {
+      brand: true,
+      model: true,
+      photos: { orderBy: { position: "asc" }, take: 1 },
+    },
+  });
+  if (!car || !(car.forSale && car.status === "APPROVED")) {
+    return { title: "Carro", robots: { index: false } };
+  }
+  const name = `${car.brand.name} ${car.model.name}${car.version ? " " + car.version : ""}`;
+  const title = `${name} (${car.year}) — ${eur(car.price)}`;
+  const description = clamp(
+    `${name} de ${car.year} com ${car.km.toLocaleString("pt-PT")} km, ${car.fuel}, ${car.gearbox}. ` +
+      `${eur(car.price)}. Vê fotos e detalhes no ${SITE_NAME}.`
+  );
+  const image = car.photos[0]?.url;
+  const url = absolute(`/carros/${car.id}`);
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: "website",
+      url,
+      title,
+      description,
+      images: image ? [{ url: image }] : undefined,
+    },
+    twitter: { card: "summary_large_image", title, description },
+  };
+}
 
 export default async function CarDetail({
   params,
@@ -27,6 +70,7 @@ export default async function CarDetail({
       model: true,
       photos: { orderBy: { position: "asc" } },
       owner: true,
+      _count: { select: { favorites: true } },
     },
   });
   if (!car) notFound();
@@ -62,10 +106,54 @@ export default async function CarDetail({
   ];
   if (car.evRange) specs.push(["Autonomia (WLTP)", car.evRange + " km ⚡"]);
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Car",
+    name: `${car.brand.name} ${car.model.name}${car.version ? " " + car.version : ""}`,
+    brand: { "@type": "Brand", name: car.brand.name },
+    model: car.model.name,
+    vehicleModelDate: String(car.year),
+    productionDate: String(car.year),
+    mileageFromOdometer: {
+      "@type": "QuantitativeValue",
+      value: car.km,
+      unitCode: "KMT",
+    },
+    fuelType: car.fuel,
+    vehicleTransmission: car.gearbox,
+    ...(car.power
+      ? {
+          vehicleEngine: {
+            "@type": "EngineSpecification",
+            enginePower: {
+              "@type": "QuantitativeValue",
+              value: car.power,
+              unitText: "cv",
+            },
+          },
+        }
+      : {}),
+    image: car.photos.map((p) => p.url),
+    url: absolute(`/carros/${car.id}`),
+    ...(car.price
+      ? {
+          offers: {
+            "@type": "Offer",
+            price: car.price,
+            priceCurrency: "EUR",
+            availability: "https://schema.org/InStock",
+            itemCondition: "https://schema.org/UsedCondition",
+            url: absolute(`/carros/${car.id}`),
+          },
+        }
+      : {}),
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-cream">
+      <JsonLd data={jsonLd} />
       <SiteHeader />
-      <TrackView carId={car.id} />
+      <TrackView kind="car" id={car.id} />
       <div className="mx-auto w-[min(1240px,94%)] py-6">
         <div className="mb-3 text-[0.88rem] font-medium text-n2muted">
           <Link href="/" className="hover:underline">
@@ -190,6 +278,14 @@ export default async function CarDetail({
               </div>
               <div className="text-[0.8rem] font-semibold text-n2muted2">
                 {car.negotiable ? "✓ Aceita ofertas" : "Preço fixo"}
+              </div>
+              <div className="mt-3">
+                <FavoriteButton
+                  kind="car"
+                  id={car.id}
+                  variant="detail"
+                  count={car._count.favorites}
+                />
               </div>
               {car.price ? (
                 <div className="my-3 flex items-center justify-between rounded-xl border border-dashed border-outline2 bg-cream px-3 py-2 text-[0.9rem] font-semibold text-ink">

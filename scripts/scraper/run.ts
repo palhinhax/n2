@@ -7,6 +7,7 @@
  *   npm run scrape -- --reset             # recomeça o ciclo do zero
  */
 import { runScrape } from "./engine";
+import { dedupeListings } from "./dedupe";
 import type { Source } from "./types";
 
 function arg(name: string): string | undefined {
@@ -43,6 +44,12 @@ async function main() {
       (summary.cycleFinished
         ? ` | desativados: ${summary.deactivated} | CICLO COMPLETO`
         : "")
+  );
+
+  // dedup entre fontes (esconde o mesmo carro repetido)
+  const dedupe = await dedupeListings();
+  console.log(
+    `dedup: ${dedupe.duplicates} duplicados escondidos (${dedupe.groups} grupos)`
   );
 }
 

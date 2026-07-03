@@ -1,10 +1,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import { auth, signOut } from "@/lib/auth";
+import { priceAlertCount } from "@/lib/favorites";
 
 export default async function SiteHeader() {
   const session = await auth();
   const user = session?.user as any;
+  const alerts = user?.id ? await priceAlertCount(user.id) : 0;
   return (
     <>
       <div className="bg-ink py-1 text-center text-[0.82rem] text-[#D9CBAE]">
@@ -33,7 +35,7 @@ export default async function SiteHeader() {
               Carros
             </Link>
             <Link
-              href="/carros?fuel=El%C3%A9trico"
+              href="/eletricos"
               className="rounded-full px-3 py-1.5 text-[0.95rem] font-semibold text-n2muted hover:bg-cream hover:text-ink"
             >
               Elétricos
@@ -44,6 +46,19 @@ export default async function SiteHeader() {
                 className="rounded-full px-3 py-1.5 text-[0.95rem] font-semibold text-n2muted hover:bg-cream hover:text-ink"
               >
                 A minha garagem
+              </Link>
+            )}
+            {user && (
+              <Link
+                href="/favoritos"
+                className="relative rounded-full px-3 py-1.5 text-[0.95rem] font-semibold text-n2muted hover:bg-cream hover:text-ink"
+              >
+                Favoritos
+                {alerts > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-clay px-1 text-[0.65rem] font-bold text-white">
+                    {alerts}
+                  </span>
+                )}
               </Link>
             )}
             {user?.role === "ADMIN" && (
@@ -58,9 +73,12 @@ export default async function SiteHeader() {
           <div className="ml-auto flex items-center gap-2">
             {user ? (
               <>
-                <span className="hidden text-[0.88rem] font-semibold text-n2muted sm:block">
+                <Link
+                  href="/conta"
+                  className="hidden text-[0.88rem] font-semibold text-n2muted hover:text-ink sm:block"
+                >
                   Olá, {user.name?.split(" ")[0]}
-                </span>
+                </Link>
                 <form
                   action={async () => {
                     "use server";

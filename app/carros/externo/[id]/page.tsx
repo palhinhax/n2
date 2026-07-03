@@ -9,8 +9,49 @@ import SiteFooter from "@/components/site-footer";
 import { fmtEur } from "@/lib/constants";
 import { SOURCE_LABEL } from "@/components/external-car-card";
 import ExternalGallery from "@/components/external-gallery";
+import FavoriteButton from "@/components/favorite-button";
+import TrackView from "@/components/track-view";
+import type { Metadata } from "next";
+import JsonLd from "@/components/json-ld";
+import { absolute, clamp, eur, SITE_NAME } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { id: string };
+}): Promise<Metadata> {
+  const l = await prisma.scrapedListing.findUnique({
+    where: { id: params.id },
+  });
+  if (!l || !l.active) return { title: "Anúncio", robots: { index: false } };
+  const title = `${l.title}${l.year ? ` (${l.year})` : ""} — ${eur(l.price)}`;
+  const description = clamp(
+    `${l.title}${l.year ? `, ${l.year}` : ""}${l.km != null ? `, ${l.km.toLocaleString("pt-PT")} km` : ""}` +
+      `${l.fuel ? `, ${l.fuel}` : ""}. ${eur(l.price)}. Vê no ${SITE_NAME}.`
+  );
+  let image: string | undefined;
+  try {
+    image = JSON.parse(l.imageUrls || "[]")[0];
+  } catch {
+    image = undefined;
+  }
+  const url = absolute(`/carros/externo/${l.id}`);
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: "website",
+      url,
+      title,
+      description,
+      images: image ? [{ url: image }] : undefined,
+    },
+    twitter: { card: "summary_large_image", title, description },
+  };
+}
 
 export default async function ExternalCarDetail({
   params,
@@ -81,9 +122,47 @@ export default async function ExternalCarDetail({
 
   const sourceLabel = SOURCE_LABEL[listing.source] ?? listing.source;
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Car",
+    name: listing.title,
+    ...(listing.brand
+      ? { brand: { "@type": "Brand", name: listing.brand } }
+      : {}),
+    ...(listing.model ? { model: listing.model } : {}),
+    ...(listing.year ? { vehicleModelDate: String(listing.year) } : {}),
+    ...(listing.km != null
+      ? {
+          mileageFromOdometer: {
+            "@type": "QuantitativeValue",
+            value: listing.km,
+            unitCode: "KMT",
+          },
+        }
+      : {}),
+    ...(listing.fuel ? { fuelType: listing.fuel } : {}),
+    ...(listing.gearbox ? { vehicleTransmission: listing.gearbox } : {}),
+    image: photos,
+    url: absolute(`/carros/externo/${listing.id}`),
+    ...(listing.price
+      ? {
+          offers: {
+            "@type": "Offer",
+            price: listing.price,
+            priceCurrency: "EUR",
+            availability: "https://schema.org/InStock",
+            itemCondition: "https://schema.org/UsedCondition",
+            url: absolute(`/carros/externo/${listing.id}`),
+          },
+        }
+      : {}),
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-cream">
+      <JsonLd data={jsonLd} />
       <SiteHeader />
+      <TrackView kind="listing" id={listing.id} />
       <div className="mx-auto w-[min(1080px,94%)] py-6">
         <div className="mb-3 text-[0.88rem] font-medium text-n2muted">
           <Link href="/" className="hover:underline">
@@ -153,11 +232,18 @@ export default async function ExternalCarDetail({
               <div className="mt-2 font-head text-[2rem] font-extrabold text-ink">
                 {listing.price != null ? fmtEur(listing.price) : "Sob consulta"}
               </div>
+              <div className="mt-3">
+                <FavoriteButton
+                  kind="listing"
+                  id={listing.id}
+                  variant="detail"
+                />
+              </div>
               <a
                 href={listing.url}
                 target="_blank"
                 rel="nofollow noopener noreferrer"
-                className="n2-btn mt-4 block w-full text-center"
+                className="n2-btn mt-3 block w-full text-center"
               >
                 Ver anúncio original no {sourceLabel} ↗
               </a>
