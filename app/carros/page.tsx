@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import CarCard from "@/components/car-card";
+import ExternalCarCard from "@/components/external-car-card";
 import Filters from "@/components/filters";
 import AdSlot from "@/components/ad-slot";
 
@@ -34,7 +35,39 @@ export default async function Carros({
           ? { km: "asc" }
           : { createdAt: "desc" };
 
-  const [cars, brands] = await Promise.all([
+  const brands = await prisma.brand.findMany({
+    orderBy: { name: "asc" },
+    include: { models: { orderBy: { name: "asc" } } },
+  });
+
+  // filtros equivalentes para os anúncios externos (marca/modelo por nome)
+  const whereExt: any = { active: true };
+  if (searchParams.marca) {
+    const b = brands.find((x) => x.id === +searchParams.marca);
+    if (b) whereExt.brand = { equals: b.name, mode: "insensitive" };
+  }
+  if (searchParams.modelo) {
+    const m = brands
+      .flatMap((b) => b.models)
+      .find((x) => x.id === +searchParams.modelo);
+    if (m) whereExt.model = { contains: m.name, mode: "insensitive" };
+  }
+  if (searchParams.precoMax) whereExt.price = { lte: +searchParams.precoMax };
+  if (searchParams.fuel) whereExt.fuel = searchParams.fuel;
+  if (searchParams.caixa) whereExt.gearbox = searchParams.caixa;
+  if (searchParams.anoMin) whereExt.year = { gte: +searchParams.anoMin };
+  if (searchParams.kmMax) whereExt.km = { lte: +searchParams.kmMax };
+
+  const orderByExt: any =
+    ordenar === "precoAsc"
+      ? { price: "asc" }
+      : ordenar === "precoDesc"
+        ? { price: "desc" }
+        : ordenar === "km"
+          ? { km: "asc" }
+          : { firstSeenAt: "desc" };
+
+  const [cars, external] = await Promise.all([
     prisma.car.findMany({
       where,
       include: {
@@ -47,11 +80,50 @@ export default async function Carros({
       orderBy,
       take: 60,
     }),
-    prisma.brand.findMany({
-      orderBy: { name: "asc" },
-      include: { models: { orderBy: { name: "asc" } } },
-    }),
+    // filtro de autonomia é exclusivo dos carros do site (externos não têm evRange)
+    searchParams.autonomiaMin
+      ? Promise.resolve([])
+      : prisma.scrapedListing.findMany({
+          where: whereExt,
+          orderBy: orderByExt,
+          take: 60,
+        }),
   ]);
+
+  // junta os dois tipos e reordena
+  type Item =
+    | { kind: "car"; sortKey: number; data: (typeof cars)[number] }
+    | { kind: "ext"; sortKey: number; data: (typeof external)[number] };
+
+  const sortKeyCar = (c: (typeof cars)[number]) =>
+    ordenar === "precoAsc" || ordenar === "precoDesc"
+      ? (c.price ?? Number.MAX_SAFE_INTEGER)
+      : ordenar === "km"
+        ? c.km
+        : -c.createdAt.getTime();
+  const sortKeyExt = (e: (typeof external)[number]) =>
+    ordenar === "precoAsc" || ordenar === "precoDesc"
+      ? (e.price ?? Number.MAX_SAFE_INTEGER)
+      : ordenar === "km"
+        ? (e.km ?? Number.MAX_SAFE_INTEGER)
+        : -e.firstSeenAt.getTime();
+
+  const items: Item[] = [
+    ...cars.map((c) => ({
+      kind: "car" as const,
+      sortKey: sortKeyCar(c),
+      data: c,
+    })),
+    ...external.map((e) => ({
+      kind: "ext" as const,
+      sortKey: sortKeyExt(e),
+      data: e,
+    })),
+  ]
+    .sort((a, b) =>
+      ordenar === "precoDesc" ? b.sortKey - a.sortKey : a.sortKey - b.sortKey
+    )
+    .slice(0, 60);
 
   const sortLink = (v: string) => {
     const p = new URLSearchParams(searchParams as any);
@@ -74,7 +146,7 @@ export default async function Carros({
           <div>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <span className="font-head text-[1.3rem] font-extrabold text-ink">
-                <span className="text-clay">{cars.length}</span> anúncios
+                <span className="text-clay">{items.length}</span> anúncios
               </span>
               <div className="flex flex-wrap gap-1.5">
                 {[
@@ -93,7 +165,7 @@ export default async function Carros({
                 ))}
               </div>
             </div>
-            {cars.length === 0 ? (
+            {items.length === 0 ? (
               <div className="n2-card p-12 text-center">
                 <h3 className="font-head text-[1.3rem] font-bold text-ink">
                   Sem resultados nesta estrada
@@ -102,13 +174,31 @@ export default async function Carros({
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {cars.slice(0, 2).map((c) => (
-                  <CarCard key={c.id} car={c} />
-                ))}
-                {cars.length > 2 && <AdSlot index={2} />}
-                {cars.slice(2).map((c) => (
-                  <CarCard key={c.id} car={c} />
-                ))}
+                {items
+                  .slice(0, 2)
+                  .map((it) =>
+                    it.kind === "car" ? (
+                      <CarCard key={`c-${it.data.id}`} car={it.data} />
+                    ) : (
+                      <ExternalCarCard
+                        key={`e-${it.data.id}`}
+                        listing={it.data}
+                      />
+                    )
+                  )}
+                {items.length > 2 && <AdSlot index={2} />}
+                {items
+                  .slice(2)
+                  .map((it) =>
+                    it.kind === "car" ? (
+                      <CarCard key={`c-${it.data.id}`} car={it.data} />
+                    ) : (
+                      <ExternalCarCard
+                        key={`e-${it.data.id}`}
+                        listing={it.data}
+                      />
+                    )
+                  )}
               </div>
             )}
           </div>

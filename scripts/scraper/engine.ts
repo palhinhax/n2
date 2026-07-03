@@ -119,6 +119,10 @@ export async function runScrape(opts: RunOptions = {}): Promise<RunSummary> {
         state.cursor = result.nextCursor;
         state.pagesDone++;
         summary.pages++;
+        console.log(
+          `[${adapter.name}] página ${state.pagesDone} — ${result.items.length} anúncios ` +
+            `(total: ${state.created} novos, ${state.updated} atualizados)`
+        );
         if (result.nextCursor === null) {
           state.finished = true;
           console.log(

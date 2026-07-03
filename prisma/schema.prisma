@@ -143,6 +143,20 @@ model ScrapedListing {
   firstSeenAt DateTime @default(now())
   lastSeenAt  DateTime @default(now())
 
+  // ---- Detalhe enriquecido (preenchido sob demanda ao abrir o anúncio) ----
+  description      String? // texto do anúncio
+  equipment        String  @default("[]") // JSON: [{ group, items: string[] }]
+  color            String?
+  doors            Int?
+  seats            Int?
+  drivetrain       String? // Tracção dianteira/traseira/integral
+  bodyType         String? // segmento/carroçaria
+  condition        String? // Usado | Novo
+  registrationDate String? // ex. "Abril 2024"
+  warranty         String? // ex. "18 Meses"
+  co2              Int?
+  detailsFetchedAt DateTime? // null = ainda não enriquecido
+
   @@unique([source, externalId])
   @@index([source, active])
   @@index([brand, model])

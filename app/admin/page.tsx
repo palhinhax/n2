@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import AdminActions from "@/components/admin-actions";
+import ScraperAdmin from "@/components/scraper-admin";
 import { fmtEur } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +33,19 @@ export default async function Admin() {
     ]),
   ]);
   const [nUsers, nCars, nLive, nOffers] = counts;
+
+  // estatísticas do scraping (por fonte + detalhes enriquecidos)
+  const [nExtActive, nEnriched, bySource] = await Promise.all([
+    prisma.scrapedListing.count({ where: { active: true } }),
+    prisma.scrapedListing.count({ where: { detailsFetchedAt: { not: null } } }),
+    prisma.scrapedListing.groupBy({
+      by: ["source"],
+      where: { active: true },
+      _count: { _all: true },
+    }),
+  ]);
+  const sourceCounts: Record<string, number> = {};
+  for (const row of bySource) sourceCounts[row.source] = row._count._all;
 
   return (
     <div className="flex min-h-screen flex-col bg-cream">
@@ -61,6 +75,31 @@ export default async function Admin() {
             </div>
           ))}
         </div>
+
+        <section className="mb-8">
+          <h2 className="mb-3 font-head text-[1.4rem] font-extrabold text-ink">
+            🚗 Scraping de anúncios externos
+          </h2>
+          <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-5">
+            {[
+              ["Externos ativos", nExtActive],
+              ["Standvirtual", sourceCounts.STANDVIRTUAL ?? 0],
+              ["OLX", sourceCounts.OLX ?? 0],
+              ["Pisca Pisca", sourceCounts.PISCAPISCA ?? 0],
+              ["Com detalhes", nEnriched],
+            ].map(([l, n]) => (
+              <div key={l as string} className="n2-card p-4 text-center">
+                <div className="font-head text-[1.6rem] font-extrabold text-ink">
+                  {(n as number).toLocaleString("pt-PT")}
+                </div>
+                <div className="text-[0.8rem] font-semibold text-n2muted">
+                  {l}
+                </div>
+              </div>
+            ))}
+          </div>
+          <ScraperAdmin />
+        </section>
 
         <section className="mb-8">
           <h2 className="mb-3 font-head text-[1.4rem] font-extrabold text-ink">
