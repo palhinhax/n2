@@ -10,6 +10,7 @@
  */
 import { prisma } from "../lib/prisma";
 import { normalizeVehicle } from "../lib/vehicle-normalize";
+import { assessListingQuality } from "../lib/listing-quality";
 
 const DRY_RUN = process.argv.includes("--dry-run");
 const BATCH = 500;
@@ -32,6 +33,11 @@ async function main() {
         brand: true,
         model: true,
         version: true,
+        km: true,
+        year: true,
+        price: true,
+        suspicious: true,
+        suspiciousReasons: true,
       },
     });
     if (!rows.length) break;
@@ -47,19 +53,30 @@ async function main() {
         title: sourceTitle,
         model: null,
       });
+      // reavalia também a qualidade (km/ano/preço + título de peças/salvado)
+      const quality = assessListingQuality({
+        km: r.km,
+        year: r.year,
+        price: r.price,
+        title: sourceTitle,
+      });
       const next = {
         title: nv.title,
         rawTitle: sourceTitle,
         brand: nv.brand ?? r.brand,
         model: nv.model ?? r.model,
         version: nv.version,
+        suspicious: quality.suspicious,
+        suspiciousReasons: JSON.stringify(quality.reasons),
       };
       const dirty =
         next.title !== r.title ||
         next.rawTitle !== r.rawTitle ||
         next.brand !== r.brand ||
         next.model !== r.model ||
-        next.version !== r.version;
+        next.version !== r.version ||
+        next.suspicious !== r.suspicious ||
+        next.suspiciousReasons !== r.suspiciousReasons;
       if (!dirty) continue;
       changed++;
       if (samples.length < 20)

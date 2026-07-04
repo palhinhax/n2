@@ -47,11 +47,12 @@ export async function upsertListing(
     lastSeenAt: now,
   };
 
-  // qualidade de dados: km/ano/preço implausíveis → marca como suspeito
+  // qualidade de dados: km/ano/preço implausíveis ou anúncio de peças → suspeito
   const quality = assessListingQuality({
     km: l.km ?? null,
     year: l.year ?? null,
     price: l.price ?? null,
+    title: l.title, // título original: é onde "para peças"/"salvado" aparece
   });
   data.suspicious = quality.suspicious;
   data.suspiciousReasons = JSON.stringify(quality.reasons);

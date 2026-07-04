@@ -47,6 +47,19 @@ export const BRAND_CANON: Record<string, string> = {
   hyundai: "Hyundai",
   ssangyong: "SsangYong",
   "ssang yong": "SsangYong",
+  // erros ortográficos frequentes nos anúncios de particulares
+  nissa: "Nissan",
+  nissam: "Nissan",
+  wolkswagen: "Volkswagen",
+  volswagen: "Volkswagen",
+  wolksvagen: "Volkswagen",
+  peugot: "Peugeot",
+  peugeout: "Peugeot",
+  renaut: "Renault",
+  hyundia: "Hyundai",
+  mercedez: "Mercedes-Benz",
+  "mercedez benz": "Mercedes-Benz",
+  toyta: "Toyota",
 };
 
 // ---------------------------------------------------------------------------
@@ -729,6 +742,23 @@ export const KNOWN_MODELS: Record<string, string[]> = {
 };
 
 // ---------------------------------------------------------------------------
+// Erros ortográficos frequentes de modelos: alias (em forma norm()) → nome
+// canónico. Só typos inequívocos — nada que colida com modelos reais.
+// ---------------------------------------------------------------------------
+
+export const MODEL_ALIAS: Record<string, Record<string, string>> = {
+  Nissan: {
+    quasquai: "Qashqai",
+    quashqai: "Qashqai",
+    qasqai: "Qashqai",
+    qashqay: "Qashqai",
+    cashcai: "Qashqai",
+    kashkai: "Qashqai",
+    atleo: "Atleon",
+  },
+};
+
+// ---------------------------------------------------------------------------
 // Limpeza de texto / tokens
 // ---------------------------------------------------------------------------
 
@@ -1062,6 +1092,30 @@ function matchModel(
         return { model: m, rest: text.slice(mk.length).trim(), known: true };
       }
     }
+  }
+  // typos frequentes ("quasquai" → Qashqai) — só depois dos nomes reais.
+  // Procura em qualquer posição: o typo pode vir depois da cilindrada
+  // (ex. "1 5 quasquai dci"); os tokens são inequívocos, não há ambiguidade.
+  const aliases = MODEL_ALIAS[brand];
+  if (aliases) {
+    const sortedAliases = Object.keys(aliases).sort(
+      (a, b) => b.length - a.length
+    );
+    for (const a of sortedAliases) {
+      const hit = new RegExp(`(?:^| )${a}(?= |\\.|$)`).exec(text);
+      if (hit) {
+        const rest = (
+          text.slice(0, hit.index) +
+          " " +
+          text.slice(hit.index + hit[0].length)
+        )
+          .replace(/\s+/g, " ")
+          .trim();
+        return { model: aliases[a], rest, known: true };
+      }
+    }
+  }
+  if (models) {
     const special = brandSpecificModel(brand, text);
     if (special)
       return {
@@ -1160,6 +1214,19 @@ function prepareText(raw: string, brand: string | null): string {
   return text;
 }
 
+/** Deteta a marca no início do título (anúncios que chegam sem campo marca). */
+function brandFromTitle(title: string): string | null {
+  const words = norm(title).split(" ").filter(Boolean);
+  for (const cand of [words.slice(0, 2).join(" "), words[0]]) {
+    if (!cand) continue;
+    if (BRAND_CANON[cand]) return BRAND_CANON[cand];
+    for (const name of Object.keys(KNOWN_MODELS)) {
+      if (norm(name) === cand) return name;
+    }
+  }
+  return null;
+}
+
 /**
  * Normaliza um anúncio scraped. Recebe o que existir: marca, modelo e/ou
  * título raw. Devolve sempre um título limpo.
@@ -1169,7 +1236,9 @@ export function normalizeVehicle(input: {
   model?: string | null;
   title?: string | null;
 }): NormalizedVehicle {
-  const brand = canonBrandName(input.brand);
+  const brand =
+    canonBrandName(input.brand) ??
+    (input.title ? brandFromTitle(input.title) : null);
 
   // candidatos: campo model (quando existe) e título completo — escolhemos o
   // que der um modelo conhecido; em empate, o que tiver a versão mais rica.

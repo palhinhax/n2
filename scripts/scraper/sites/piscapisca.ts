@@ -1,16 +1,24 @@
 import { fetchText } from "../http";
-import { intFrom, stripTags } from "../parse";
+import { intFrom } from "../parse";
 import type { Listing, PageResult, SiteAdapter } from "../types";
 
 /**
  * PiscaPisca.pt — Angular com SSR. A listagem genérica /carros tem limite de
  * paginação, por isso percorremos marca a marca (/carros/{marca}?page=N).
- * O parsing é feito sobre o HTML renderizado no servidor.
+ *
+ * Em vez de raspar o HTML dos cartões, lemos o TransferState do Angular
+ * (<script id="ssr-app-state" type="application/json">), que traz os anúncios
+ * da página já estruturados (marca, modelo, versão, preço, km, stand, distrito)
+ * e a paginação exata.
+ *
+ * Nota: o Cloudflare do site bloqueia o fetch do Node (fingerprint TLS) —
+ * o fallback curl do http.ts trata disso de forma transparente.
  */
 
-const BASE = "https://www.piscapisca.pt/carros";
+const ORIGIN = "https://www.piscapisca.pt";
+const BASE = `${ORIGIN}/carros`;
 
-// Slugs de marca conhecidos (multi-palavra primeiro para o parsing de brand/model)
+// Slugs de marca conhecidos
 const BRANDS = [
   "alfa-romeo",
   "aston-martin",
@@ -73,91 +81,87 @@ interface PpCursor {
   page: number;
 }
 
-const CARD_LINK_RE =
-  /href="(https:\/\/www\.piscapisca\.pt\/carros\/usados\/([a-z0-9-]+)\/([A-Za-z0-9]+))[^"]*"/g;
+// ---------------------------------------------------------------------------
+// TransferState (ssr-app-state)
+// ---------------------------------------------------------------------------
 
-function brandModelFromSlug(slug: string): {
-  brand: string | null;
-  model: string | null;
-} {
-  for (const b of BRANDS) {
-    if (slug === b || slug.startsWith(`${b}-`)) {
-      const rest = slug
-        .slice(b.length + 1)
-        // remove sufixo de combustível do slug
-        .replace(
-          /-(gasolina|diesel|eletrico|gpl|hibrido(-a-gasolina|-a-diesel)?|hidrogenio)$/i,
-          ""
-        );
-      const brand = b
-        .split("-")
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join("-");
-      return { brand, model: rest ? rest.replace(/-/g, " ") : null };
-    }
-  }
-  return { brand: null, model: null };
+interface PpVehicle {
+  id?: string;
+  link?: string; // "/carros/usados/bmw-serie-1-120d-diesel/8ZQm9"
+  thumbnail?: string;
+  brand?: string;
+  model?: string;
+  serie?: string; // motorização/acabamento — ex. "120d, 190cv"
+  prices?: { private?: number; professional?: number };
+  year?: string;
+  km?: string; // "208 971 km"
+  kmsInValidation?: boolean; // km ainda por confirmar pelo próprio site
+  fuel?: string;
+  transmission?: string;
+  powerCV?: string; // "190 cv"
+  cylinderCapacity?: string; // "1995 cm3"
+  stand?: string;
+  seller?: string;
+  standLocation?: { city?: string; county?: string; district?: string };
 }
 
-/** Extrai um anúncio a partir do troço de HTML à volta do link do cartão. */
-function parseCard(
-  html: string,
-  url: string,
-  slug: string,
-  externalId: string
-): Listing | null {
-  const idx = html.indexOf(url);
-  if (idx === -1) return null;
-  const chunk = html.slice(Math.max(0, idx - 2500), idx + 5000);
-  const text = stripTags(chunk);
+interface PpState {
+  SEARCH_VEHICLES?: PpVehicle[];
+  SEARCH_VEHICLES_HIGHLIGHT_PLUS?: PpVehicle[];
+  SEARCH_VEHICLES_HIGHLIGHT_SEGMENT?: PpVehicle[];
+  VEHICLES_PAGINATION?: { total_pages?: number; number?: number }; // number é 0-based
+}
 
-  // "Fiat Panda 1.0 Hybrid City Life 88 836 km • Manual • Gasolina • 2022 Moure - Barcelos"
-  const specs = text.match(
-    /([\dº.,\s]{1,12})km\s*•\s*(Manual|Automática|Semi-automática)\s*•\s*([A-Za-zÀ-ÿ() -]{3,40}?)\s*•\s*((?:19|20)\d{2})\s*([A-Za-zÀ-ÿ' -]{0,60})/
-  );
+const STATE_RE =
+  /<script id="ssr-app-state" type="application\/json"[^>]*>([\s\S]*?)<\/script>/;
 
-  // título: texto imediatamente antes do bloco "N km •"
-  let title: string | null = null;
-  if (specs && specs.index != null) {
-    const before = text.slice(0, specs.index).trim();
-    const parts = before.split(/(?:>>|€|\bkm\b)/);
-    title =
-      parts[parts.length - 1]
-        .trim()
-        .replace(/^[\d\s.,]+/, "")
-        .trim() || null;
-    if (title && title.length > 90) title = title.slice(-90).trim();
+/** Desfaz o escaping do TransferState do Angular. `&a;` tem de ser o último. */
+function unescapeState(s: string): string {
+  return s
+    .replace(/&q;/g, '"')
+    .replace(/&s;/g, "'")
+    .replace(/&l;/g, "<")
+    .replace(/&g;/g, ">")
+    .replace(/&a;/g, "&");
+}
+
+function extractState(html: string): PpState {
+  const m = STATE_RE.exec(html);
+  if (!m) {
+    throw new Error(
+      "PiscaPisca: ssr-app-state não encontrado — o formato da página mudou?"
+    );
   }
+  return JSON.parse(unescapeState(m[1])) as PpState;
+}
 
-  const priceMatch = text.match(/([\d]{1,3}(?:[\s.]\d{3})*)\s*€/);
-  const imgMatch = chunk.match(
-    /https:\/\/static\.piscapisca\.pt\/[^"'\s)]+\.(?:jpg|jpeg|png|webp)/i
-  );
-  const powerMatch = text.match(/Potência\s*([\d\s]{1,6})\s*cv/i);
-  const dispMatch = text.match(/Cilindrada\s*([\d\s]{1,7})\s*cm3/i);
+function toListing(v: PpVehicle): Listing | null {
+  if (!v.id || !v.link) return null;
+  const title = [v.brand, v.model, v.serie].filter(Boolean).join(" ").trim();
+  if (!title) return null;
 
-  const { brand, model } = brandModelFromSlug(slug);
-
-  if (!title && !brand) return null;
-
+  const loc = v.standLocation;
   return {
     source: "PISCAPISCA",
-    externalId,
-    url,
-    title: title ?? [brand, model].filter(Boolean).join(" "),
-    brand,
-    model,
-    year: specs ? intFrom(specs[4]) : null,
-    km: specs ? intFrom(specs[1]) : null,
-    fuel: specs ? specs[3].trim() : null,
-    gearbox: specs ? specs[2] : null,
-    power: powerMatch ? intFrom(powerMatch[1]) : null,
-    displacement: dispMatch ? intFrom(dispMatch[1]) : null,
-    price: priceMatch ? intFrom(priceMatch[1]) : null,
-    location: specs && specs[5] ? specs[5].trim() || null : null,
-    sellerType: /PARTICULAR/i.test(text) ? "Particular" : "Profissional",
-    sellerName: null,
-    imageUrls: imgMatch ? [imgMatch[0]] : [],
+    externalId: v.id,
+    url: `${ORIGIN}${v.link}`,
+    title,
+    brand: v.brand ?? null,
+    model: v.model ?? null,
+    year: intFrom(v.year),
+    // o próprio site marca alguns km como "em validação" — não os guardamos
+    km: v.kmsInValidation ? null : intFrom(v.km),
+    fuel: v.fuel ?? null,
+    gearbox: v.transmission ?? null,
+    power: intFrom(v.powerCV),
+    displacement: intFrom(v.cylinderCapacity),
+    price: v.prices?.private || v.prices?.professional || null,
+    location:
+      [loc?.county || loc?.city, loc?.district].filter(Boolean).join(", ") ||
+      null,
+    sellerType: v.stand ? "Profissional" : "Particular",
+    sellerName: v.stand || v.seller || null,
+    imageUrls: v.thumbnail ? [v.thumbnail] : [],
   };
 }
 
@@ -174,21 +178,32 @@ export const piscapisca: SiteAdapter = {
         ? `${BASE}/${brand}`
         : `${BASE}/${brand}?page=${cursor.page}`;
     const html = await fetchText(url);
+    const state = extractState(html);
 
     const seen = new Set<string>();
     const items: Listing[] = [];
-    CARD_LINK_RE.lastIndex = 0;
-    let m: RegExpExecArray | null;
-    while ((m = CARD_LINK_RE.exec(html)) !== null) {
-      const [, cardUrl, slug, externalId] = m;
-      if (seen.has(externalId)) continue;
-      seen.add(externalId);
-      const listing = parseCard(html, cardUrl, slug, externalId);
-      if (listing) items.push(listing);
+    const pools = [
+      state.SEARCH_VEHICLES,
+      state.SEARCH_VEHICLES_HIGHLIGHT_PLUS,
+      state.SEARCH_VEHICLES_HIGHLIGHT_SEGMENT,
+    ];
+    for (const pool of pools) {
+      for (const v of pool ?? []) {
+        if (!v.id || seen.has(v.id)) continue;
+        seen.add(v.id);
+        const listing = toListing(v);
+        if (listing) items.push(listing);
+      }
     }
 
+    // paginação exata do próprio site; fallback para a heurística antiga
+    const pag = state.VEHICLES_PAGINATION;
+    const hasNextPage = pag
+      ? (pag.number ?? cursor.page - 1) + 1 < (pag.total_pages ?? 0)
+      : items.length > 0;
+
     let nextCursor: PpCursor | null;
-    if (items.length > 0) {
+    if (hasNextPage) {
       nextCursor = { ...cursor, page: cursor.page + 1 };
     } else if (cursor.brandIdx + 1 < BRANDS.length) {
       nextCursor = { brandIdx: cursor.brandIdx + 1, page: 1 };

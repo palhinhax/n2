@@ -29,7 +29,13 @@ interface SourceState {
   pagesDone: number;
   created: number;
   updated: number;
+  failStreak: number; // invocações seguidas a falhar nesta fonte
 }
+
+/** Falhas consecutivas a partir das quais a fonte desiste do ciclo atual —
+ *  sem isto, uma fonte permanentemente bloqueada (ex.: 403 anti-bot) impede
+ *  o ciclo de fechar e o deactivateStale/dedupe de correr para as restantes. */
+const MAX_FAIL_STREAK = 3;
 
 export interface RunOptions {
   sources?: Source[]; // default: todas
@@ -111,6 +117,7 @@ export async function runScrape(opts: RunOptions = {}): Promise<RunSummary> {
       pagesDone: loaded.pagesDone ?? 0,
       created: loaded.created ?? 0,
       updated: loaded.updated ?? 0,
+      failStreak: loaded.failStreak ?? 0,
     };
 
     while (
@@ -127,6 +134,7 @@ export async function runScrape(opts: RunOptions = {}): Promise<RunSummary> {
         }
         state.cursor = result.nextCursor;
         state.pagesDone++;
+        state.failStreak = 0;
         summary.pages++;
         console.log(
           `[${adapter.name}] página ${state.pagesDone} — ${result.items.length} anúncios ` +
@@ -145,6 +153,13 @@ export async function runScrape(opts: RunOptions = {}): Promise<RunSummary> {
           `[${adapter.name}] erro na página ${state.pagesDone + 1}:`,
           err
         );
+        state.failStreak++;
+        if (state.failStreak >= MAX_FAIL_STREAK) {
+          state.finished = true;
+          console.error(
+            `[${adapter.name}] ${state.failStreak} invocações seguidas a falhar — desisto desta fonte até ao próximo ciclo`
+          );
+        }
         await setState(key, state);
         break; // passa à fonte seguinte; retoma na próxima invocação
       }

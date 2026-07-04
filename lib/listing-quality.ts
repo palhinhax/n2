@@ -13,6 +13,7 @@ export const SUSPICION_REASONS = {
   km: "km_implausivel",
   year: "ano_implausivel",
   price: "preco_implausivel",
+  parts: "possivel_pecas",
 } as const;
 
 export type SuspicionReason =
@@ -22,6 +23,7 @@ export const REASON_LABEL: Record<SuspicionReason, string> = {
   km_implausivel: "Quilómetros por confirmar",
   ano_implausivel: "Ano por confirmar",
   preco_implausivel: "Preço por confirmar",
+  possivel_pecas: "Possível anúncio de peças",
 };
 
 // Limites (ver feedback SEO):
@@ -34,7 +36,21 @@ export interface QualityInput {
   km?: number | null;
   year?: number | null;
   price?: number | null;
+  /** título original do anúncio (para detetar anúncios de peças/salvados) */
+  title?: string | null;
 }
+
+// "para peças", "só peças", "salvado", "desmontagem", ou título a começar por
+// "carroçaria/carroceria" — não é um carro completo à venda. Testado sobre o
+// título sem acentos/minúsculas; conservador de propósito (título, não descrição).
+const PARTS_TITLE_RE =
+  /\b(?:para|so|p) ?pecas?\b|\bsalvado\b|\bdesmontagem\b|^\s*(?:carrocaria|carroceria)\b/;
+
+const normForMatch = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 
 export interface QualityResult {
   suspicious: boolean;
@@ -60,6 +76,9 @@ export function assessListingQuality(l: QualityInput): QualityResult {
     (l.price < MIN_PLAUSIBLE_PRICE || l.price > MAX_PLAUSIBLE_PRICE)
   )
     reasons.push(SUSPICION_REASONS.price);
+
+  if (l.title && PARTS_TITLE_RE.test(normForMatch(l.title)))
+    reasons.push(SUSPICION_REASONS.parts);
 
   return { suspicious: reasons.length > 0, reasons };
 }
