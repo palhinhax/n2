@@ -65,6 +65,12 @@ export default async function SiteHeader() {
               Elétricos
             </Link>
             <Link
+              href="/importar-carros"
+              className="rounded-full px-3 py-1.5 text-[0.95rem] font-semibold text-n2muted hover:bg-cream hover:text-ink"
+            >
+              Importar
+            </Link>
+            <Link
               href="/avaliar"
               className="rounded-full px-3 py-1.5 text-[0.95rem] font-semibold text-n2muted hover:bg-cream hover:text-ink"
             >

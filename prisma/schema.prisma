@@ -363,6 +363,140 @@ model FinanceLead {
   @@index([createdAt])
 }
 
+// ---------- Importação de carros da Europa ----------
+
+// Fonte de scraping estrangeira (gerida no painel de admin). O campo `adapter`
+// aponta para um adaptador em scripts/scraper/foreign/sites — a mesma
+// implementação serve vários países/instâncias com configuração diferente.
+model ImportSource {
+  id        String    @id @default(cuid())
+  slug      String    @unique // ex.: "autoscout24-de"
+  name      String // ex.: "AutoScout24 Alemanha"
+  adapter   String // "autoscout24" | "demo" | ...
+  country   String // ISO-2: DE FR BE NL ES IT LU AT
+  baseUrl   String
+  enabled   Boolean   @default(true)
+  notes     String?
+  lastRunAt DateTime?
+  lastError String? // último erro (limpo quando uma página corre bem)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+// Anúncio estrangeiro (Europa) — alimenta a área "Importar carros da Europa".
+// Sem FK para ImportSource de propósito (igual ao ScrapedListing): apagar ou
+// renomear uma fonte não pode apagar o histórico de anúncios.
+model ForeignListing {
+  id         String @id @default(cuid())
+  sourceSlug String // slug da ImportSource (ex.: "autoscout24-de")
+  externalId String // id do anúncio no site de origem
+  url        String // link para o anúncio original
+  country    String // ISO-2 do país do anúncio
+  region     String? // cidade/região no país de origem
+
+  title    String // título limpo "Marca Modelo Versão"
+  rawTitle String?
+  brand    String?
+  model    String?
+  version  String?
+
+  year              Int?
+  firstRegistration String? // 1ª matrícula, ex. "2019-03"
+  km                Int?
+  price             Int? // preço na moeda de origem (inteiro)
+  currency          String  @default("EUR")
+  priceEur          Int? // preço convertido para EUR (igual a price se EUR)
+  fuel              String? // normalizado PT: Gasolina | Diesel | Híbrido | ...
+  gearbox           String? // Manual | Automática
+  displacement      Int? // cm3
+  power             Int? // cv
+  co2               Int? // g/km
+  emissionStandard  String? // ex. "Euro 6d"
+  bodyType          String?
+  doors             Int?
+  seats             Int?
+
+  sellerType  String? // Particular | Profissional
+  sellerName  String?
+  sellerPhone String? // só quando público no site de origem
+  sellerEmail String? // só quando público no site de origem
+  imageUrls   String  @default("[]") // JSON array (hotlink CDN de origem)
+  description String?
+
+  // moderação/ciclo de vida: anúncios entram APPROVED; o admin pode rejeitar
+  // ou marcar como expirado manualmente. `active` é gerido pelo scraper.
+  status        String   @default("APPROVED") // PENDING | APPROVED | REJECTED | EXPIRED
+  active        Boolean  @default(true)
+  firstSeenAt   DateTime @default(now())
+  lastSeenAt    DateTime @default(now())
+  lastCheckedAt DateTime @default(now())
+
+  // deduplicação entre fontes/países + qualidade de dados
+  dedupeKey         String?
+  isDuplicate       Boolean @default(false)
+  suspicious        Boolean @default(false)
+  suspiciousReasons String  @default("[]")
+
+  // ---- custo de importação pré-calculado (cache, ver lib/import-cost.ts) ----
+  // Recalculado em cada upsert e no fim de cada ciclo de scraping, para os
+  // filtros "custo total" / "poupança" funcionarem como colunas indexadas.
+  importCostJson String? // JSON ImportCostBreakdown
+  importTotalEur Int? // custo total estimado legalizado em PT
+  ptMarketMedian Int? // mediana de preço em PT (comparável)
+  savingsEur     Int? // ptMarketMedian - importTotalEur (pode ser negativo)
+  dealRating     String? // EXCELLENT | GOOD | NEUTRAL | BAD
+
+  leads ImportLead[]
+
+  @@unique([sourceSlug, externalId])
+  @@index([country, active])
+  @@index([brand, model])
+  @@index([active, status, isDuplicate, suspicious])
+  @@index([importTotalEur])
+  @@index([savingsEur])
+  @@index([dedupeKey])
+  @@index([lastSeenAt])
+}
+
+// Pedido de ajuda para importar um carro (lead) — botão "Quero importar".
+model ImportLead {
+  id           String          @id @default(cuid())
+  name         String
+  email        String
+  phone        String?
+  listingId    String?
+  listing      ForeignListing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  vehicleTitle String?
+  country      String? // país do carro
+  budget       Int? // orçamento total do cliente (EUR)
+  contactPref  String? // email | telefone | whatsapp
+  message      String?
+  status       String          @default("NEW") // NEW | CONTACTED | CLOSED
+  createdAt    DateTime        @default(now())
+
+  @@index([status, createdAt])
+}
+
+// Log do scraping de fontes estrangeiras (visível no painel de admin).
+model ImportScrapeLog {
+  id         String   @id @default(cuid())
+  sourceSlug String
+  level      String // INFO | ERROR
+  message    String
+  createdAt  DateTime @default(now())
+
+  @@index([sourceSlug, createdAt])
+  @@index([createdAt])
+}
+
+// Pressupostos configuráveis do cálculo de custos de importação (editável no
+// admin) — evita hardcodar taxas/valores que mudam com o Orçamento do Estado.
+model ImportConfig {
+  id        String   @id // "assumptions"
+  data      String   @default("{}")
+  updatedAt DateTime @updatedAt
+}
+
 // Denúncia de um anúncio (vai para o painel de admin, não para email).
 model Report {
   id           String   @id @default(cuid())
