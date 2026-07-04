@@ -9,6 +9,7 @@ import {
   type ListingQuery,
 } from "@/lib/car-listing";
 import { absolute } from "@/lib/seo";
+import { seoStats } from "@/lib/seo-stats";
 
 export type RelatedGroup = {
   heading: string;
@@ -38,9 +39,10 @@ export default async function SeoListing({
   related?: RelatedGroup[];
   faq?: { q: string; a: string }[];
 }) {
-  const [firstPage, total] = await Promise.all([
+  const [firstPage, total, stats] = await Promise.all([
     fetchListingPage(query as any, 0, 24),
     countListings(query),
+    seoStats(query),
   ]);
 
   const gridQuery: Record<string, string> = {};
@@ -106,6 +108,50 @@ export default async function SeoListing({
           {total.toLocaleString("pt-PT")}{" "}
           {total === 1 ? "carro disponível" : "carros disponíveis"}
         </p>
+
+        {stats && (
+          <section
+            aria-label="Estatísticas de mercado"
+            className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4"
+          >
+            <div className="n2-card p-4">
+              <p className="text-[0.78rem] font-semibold uppercase tracking-wide text-n2muted">
+                Preço mediano
+              </p>
+              <p className="font-head text-[1.25rem] font-extrabold text-ink">
+                {stats.medianPrice != null
+                  ? `${stats.medianPrice.toLocaleString("pt-PT")} €`
+                  : "—"}
+              </p>
+            </div>
+            <div className="n2-card p-4">
+              <p className="text-[0.78rem] font-semibold uppercase tracking-wide text-n2muted">
+                Km médio
+              </p>
+              <p className="font-head text-[1.25rem] font-extrabold text-ink">
+                {stats.avgKm != null
+                  ? `${stats.avgKm.toLocaleString("pt-PT")} km`
+                  : "—"}
+              </p>
+            </div>
+            <div className="n2-card p-4">
+              <p className="text-[0.78rem] font-semibold uppercase tracking-wide text-n2muted">
+                Anos mais comuns
+              </p>
+              <p className="font-head text-[1.25rem] font-extrabold text-ink">
+                {stats.commonYears.length ? stats.commonYears.join(" · ") : "—"}
+              </p>
+            </div>
+            <div className="n2-card p-4">
+              <p className="text-[0.78rem] font-semibold uppercase tracking-wide text-n2muted">
+                Amostra
+              </p>
+              <p className="font-head text-[1.25rem] font-extrabold text-ink">
+                {stats.sample.toLocaleString("pt-PT")} anúncios
+              </p>
+            </div>
+          </section>
+        )}
 
         <div className="mt-5">
           {firstPage.items.length === 0 ? (

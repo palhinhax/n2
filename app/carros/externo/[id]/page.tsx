@@ -16,6 +16,7 @@ import type { Metadata } from "next";
 import JsonLd from "@/components/json-ld";
 import { absolute, clamp, eur, SITE_NAME } from "@/lib/seo";
 import PriceBadge from "@/components/price-badge";
+import { parseSuspiciousReasons, REASON_LABEL } from "@/lib/listing-quality";
 import { marketStats, ratePrice } from "@/lib/price-intel";
 import FinanceSimulator from "@/components/finance-simulator";
 import ReportButton from "@/components/report-button";
@@ -34,6 +35,10 @@ export async function generateMetadata({
   if (!l || !l.active || (l.price != null && l.price < MIN_LISTING_PRICE))
     return { title: "Anúncio", robots: { index: false } };
   const title = `${l.title}${l.year ? ` (${l.year})` : ""} — ${eur(l.price)}`;
+  // dados implausíveis (km/ano/preço) — página visível mas fora do índice
+  const suspiciousMeta = l.suspicious
+    ? { robots: { index: false as const } }
+    : {};
   const description = clamp(
     `${l.title}${l.year ? `, ${l.year}` : ""}${l.km != null ? `, ${l.km.toLocaleString("pt-PT")} km` : ""}` +
       `${l.fuel ? `, ${l.fuel}` : ""}. ${eur(l.price)}. Vê no ${SITE_NAME}.`
@@ -48,6 +53,7 @@ export async function generateMetadata({
   return {
     title,
     description,
+    ...suspiciousMeta,
     alternates: { canonical: url },
     openGraph: {
       type: "website",
@@ -175,6 +181,24 @@ export default async function ExternalCarDetail({
       : {}),
     ...(listing.fuel ? { fuelType: listing.fuel } : {}),
     ...(listing.gearbox ? { vehicleTransmission: listing.gearbox } : {}),
+    ...(listing.power
+      ? {
+          vehicleEngine: {
+            "@type": "EngineSpecification",
+            enginePower: {
+              "@type": "QuantitativeValue",
+              value: listing.power,
+              unitText: "cv",
+            },
+          },
+        }
+      : {}),
+    ...(listing.color ? { color: listing.color } : {}),
+    ...(listing.doors ? { numberOfDoors: listing.doors } : {}),
+    ...(listing.seats ? { seatingCapacity: listing.seats } : {}),
+    ...(listing.bodyType ? { bodyType: listing.bodyType } : {}),
+    ...(listing.co2 != null ? { emissionsCO2: listing.co2 } : {}),
+    itemCondition: "https://schema.org/UsedCondition",
     image: photos,
     url: absolute(`/carros/externo/${listing.id}`),
     ...(listing.price
@@ -191,9 +215,25 @@ export default async function ExternalCarDetail({
       : {}),
   };
 
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Início", item: absolute("/") },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Carros usados",
+        item: absolute("/carros"),
+      },
+      { "@type": "ListItem", position: 3, name: listing.title },
+    ],
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-cream">
       <JsonLd data={jsonLd} />
+      <JsonLd data={breadcrumbLd} />
       <SiteHeader />
       <TrackView kind="listing" id={listing.id} />
       <div className="mx-auto w-[min(1080px,94%)] py-6">
@@ -212,6 +252,20 @@ export default async function ExternalCarDetail({
           <div className="n2-card mb-4 border-l-4 border-clay p-4 text-[0.9rem] font-medium text-ink">
             Este anúncio já não aparece no site de origem — pode ter sido
             vendido ou removido.
+          </div>
+        )}
+
+        {listing.suspicious && (
+          <div className="n2-card mb-4 border-l-4 border-[#C6603B] p-4 text-[0.9rem] text-ink">
+            <b>Dados por confirmar.</b> Alguns valores deste anúncio parecem
+            implausíveis e podem ser erro do site de origem:
+            <span className="ml-1 font-semibold">
+              {parseSuspiciousReasons(listing.suspiciousReasons)
+                .map((r) => REASON_LABEL[r])
+                .join(" · ")}
+            </span>
+            . Confirma sempre no anúncio original antes de decidir. Por isso,
+            este anúncio não entra nas listagens nem na comparação de preços.
           </div>
         )}
 

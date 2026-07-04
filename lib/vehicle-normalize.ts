@@ -802,6 +802,12 @@ const TOKEN_CASE: Record<string, string> = {
   gte: "GTE",
   gt: "GT",
   gts: "GTS",
+  gs: "GS", // ex. Opel Frontera GS
+  gse: "GSe",
+  gsi: "GSi",
+  "gs-line": "GS Line",
+  "n-line": "N Line",
+  nline: "N Line",
   gtline: "GT Line",
   "gt-line": "GT Line",
   rs: "RS",

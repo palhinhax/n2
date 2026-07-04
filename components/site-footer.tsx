@@ -75,9 +75,19 @@ export default function SiteFooter() {
           </div>
           <div>
             <h4 className="mb-2 font-head text-[0.92rem] uppercase tracking-widest text-sand">
-              Conta
+              Nacional 2
             </h4>
             <ul className="space-y-1 text-[0.92rem]">
+              <li>
+                <Link href="/guias" className="hover:text-stone2">
+                  Guias
+                </Link>
+              </li>
+              <li>
+                <Link href="/sobre" className="hover:text-stone2">
+                  Sobre nós
+                </Link>
+              </li>
               <li>
                 <Link href="/auth/login" className="hover:text-stone2">
                   Entrar

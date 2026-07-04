@@ -241,6 +241,12 @@ model ScrapedListing {
   dedupeKey   String? // brand|model|year|km normalizado
   isDuplicate Boolean @default(false) // true = cópia escondida da listagem
 
+  // qualidade de dados (ver lib/listing-quality.ts) — anúncios com km/ano/preço
+  // implausíveis saem das listagens, estatísticas e sitemaps; a página de
+  // detalhe fica noindex com aviso "por confirmar".
+  suspicious        Boolean @default(false)
+  suspiciousReasons String  @default("[]") // JSON: ["km_implausivel", ...]
+
   // histórico de preço (descida) — preenchido quando o scraper deteta mudança
   previousPrice  Int?
   priceChangedAt DateTime?
@@ -253,6 +259,7 @@ model ScrapedListing {
   @@index([price])
   @@index([dedupeKey])
   @@index([active, isDuplicate])
+  @@index([active, isDuplicate, suspicious])
 }
 
 // Contador de uso diário das funcionalidades de IA (chat, avaliação) por

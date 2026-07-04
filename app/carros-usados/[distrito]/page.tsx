@@ -4,6 +4,7 @@ import SeoListing, { type RelatedGroup } from "@/components/seo-listing";
 import { DISTRICTS } from "@/lib/constants";
 import { slugify, matchSlug } from "@/lib/slug";
 import { absolute, clamp, SITE_NAME } from "@/lib/seo";
+import { CATEGORY_PAGES, PRICE_BANDS } from "@/lib/seo-links";
 
 export const revalidate = 3600;
 
@@ -34,6 +35,17 @@ export default async function DistritoPage({
   if (!distrito) notFound();
 
   const related: RelatedGroup[] = [
+    {
+      heading: "Por tipo de carro",
+      links: CATEGORY_PAGES.map((c) => ({ label: c.label, href: c.href })),
+    },
+    {
+      heading: "Por orçamento",
+      links: PRICE_BANDS.map((b) => ({
+        label: `até ${b.toLocaleString("pt-PT")} €`,
+        href: `/carros-ate/${b}`,
+      })),
+    },
     {
       heading: "Outros distritos",
       links: DISTRICTS.filter((d) => d !== distrito).map((d) => ({

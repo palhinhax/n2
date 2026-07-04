@@ -2,6 +2,9 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import SeoListing, { type RelatedGroup } from "@/components/seo-listing";
 import { absolute, clamp, SITE_NAME } from "@/lib/seo";
+import { CATEGORY_PAGES } from "@/lib/seo-links";
+import { DISTRICTS } from "@/lib/constants";
+import { slugify } from "@/lib/slug";
 
 export const revalidate = 3600;
 
@@ -50,6 +53,17 @@ export default async function PrecoPage({
       links: BANDS.filter((b) => b !== preco).map((b) => ({
         label: `até ${b.toLocaleString("pt-PT")} €`,
         href: `/carros-ate/${b}`,
+      })),
+    },
+    {
+      heading: "Por tipo de carro",
+      links: CATEGORY_PAGES.map((c) => ({ label: c.label, href: c.href })),
+    },
+    {
+      heading: "Por distrito",
+      links: DISTRICTS.map((d) => ({
+        label: d,
+        href: `/carros-usados/${slugify(d)}`,
       })),
     },
   ];

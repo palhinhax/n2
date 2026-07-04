@@ -66,6 +66,7 @@ export async function marketStats(opts: {
     where: {
       active: true,
       isDuplicate: false,
+      suspicious: false,
       price: { gt: 100 },
       OR: brandAliases(brand).map((a) => ({
         brand: { equals: a, mode: "insensitive" as const },
@@ -126,6 +127,7 @@ export async function marketStatsBatch(
     where: {
       active: true,
       isDuplicate: false,
+      suspicious: false,
       price: { gt: 100 },
       OR: conditions,
     },

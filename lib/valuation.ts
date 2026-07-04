@@ -53,6 +53,7 @@ export async function findComparables(
     where: {
       active: true,
       isDuplicate: false,
+      suspicious: false,
       price: { gt: 300 },
       brand: { equals: input.marca, mode: "insensitive" },
       model: { contains: input.modelo, mode: "insensitive" },

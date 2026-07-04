@@ -161,9 +161,29 @@ export default async function CarDetail({
       : {}),
   };
 
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Início", item: absolute("/") },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Carros usados",
+        item: absolute("/carros"),
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: `${car.brand.name} ${car.model.name}`,
+      },
+    ],
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-cream">
       <JsonLd data={jsonLd} />
+      <JsonLd data={breadcrumbLd} />
       <SiteHeader />
       <TrackView kind="car" id={car.id} />
       <div className="mx-auto w-[min(1240px,94%)] py-6">

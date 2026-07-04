@@ -161,6 +161,7 @@ export async function searchSite(qRaw: string): Promise<SearchResponse> {
       where: {
         active: true,
         isDuplicate: false,
+        suspicious: false,
         title: { contains: longest, mode: "insensitive" },
       },
       orderBy: { firstSeenAt: "desc" },

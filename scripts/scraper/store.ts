@@ -3,6 +3,7 @@ import type { Listing } from "./types";
 import { ensureBrandModel } from "./brands";
 import { dedupeKeyFor } from "./dedupe";
 import { normalizeVehicle } from "../../lib/vehicle-normalize";
+import { assessListingQuality } from "../../lib/listing-quality";
 
 export async function upsertListing(
   l: Listing
@@ -45,6 +46,15 @@ export async function upsertListing(
     active: true,
     lastSeenAt: now,
   };
+
+  // qualidade de dados: km/ano/preço implausíveis → marca como suspeito
+  const quality = assessListingQuality({
+    km: l.km ?? null,
+    year: l.year ?? null,
+    price: l.price ?? null,
+  });
+  data.suspicious = quality.suspicious;
+  data.suspiciousReasons = JSON.stringify(quality.reasons);
 
   const existing = await prisma.scrapedListing.findUnique({
     where: {

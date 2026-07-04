@@ -143,13 +143,19 @@ export async function fetchBrandOptions(opts: { electric?: boolean } = {}) {
         })
       : Promise.resolve([] as any[]),
     prisma.scrapedListing.findMany({
-      where: { active: true, brand: { not: null }, ...fuelWhere },
+      where: {
+        active: true,
+        suspicious: false,
+        brand: { not: null },
+        ...fuelWhere,
+      },
       select: { brand: true },
       distinct: ["brand"],
     }),
     prisma.scrapedListing.findMany({
       where: {
         active: true,
+        suspicious: false,
         brand: { not: null },
         model: { not: null },
         ...fuelWhere,
@@ -243,7 +249,7 @@ export function buildWheres(q: ListingQuery): { where: any; whereExt: any } {
     ];
   }
 
-  const whereExt: any = { active: true, isDuplicate: false };
+  const whereExt: any = { active: true, isDuplicate: false, suspicious: false };
   // marca com aliases: como o filtro de combustível também usa OR, juntamos
   // as marcas num AND separado para não colidir.
   if (q.marca) {

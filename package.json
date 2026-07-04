@@ -19,6 +19,7 @@
     "db:studio": "prisma studio",
     "scrape": "tsx scripts/scraper/run.ts",
     "normalize:listings": "tsx scripts/normalize-listings.ts",
+    "quality:flag": "tsx scripts/flag-suspicious.ts",
     "prepare": "husky",
     "setup": "prisma generate && prisma db push && npm run db:seed"
   },

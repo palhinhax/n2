@@ -186,6 +186,7 @@ const fetchCandidates = cache(async (): Promise<Candidate[]> => {
       where: {
         active: true,
         isDuplicate: false,
+        suspicious: false,
         price: { not: null },
         imageUrls: { not: "[]" },
       },
@@ -478,7 +479,7 @@ export async function countAllForSale(): Promise<number> {
   const [cars, ext] = await Promise.all([
     prisma.car.count({ where: { forSale: true, status: "APPROVED" } }),
     prisma.scrapedListing.count({
-      where: { active: true, isDuplicate: false },
+      where: { active: true, isDuplicate: false, suspicious: false },
     }),
   ]);
   return cars + ext;
