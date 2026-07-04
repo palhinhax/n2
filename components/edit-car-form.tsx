@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import PhotoUploader from "@/components/photo-uploader";
+import AiDescriptionButton from "@/components/ai-description-button";
 import { FUELS, GEARS, DISTRICTS, ELECTRIFIED } from "@/lib/constants";
 
 export default function EditCarForm({ car }: { car: any }) {
@@ -193,6 +194,26 @@ export default function EditCarForm({ car }: { car: any }) {
             placeholder="Estado, extras, revisões, motivo da venda…"
             value={f.description}
             onChange={(e) => setF({ ...f, description: e.target.value })}
+          />
+          <AiDescriptionButton
+            data={{
+              marca: brand?.name,
+              modelo: (brand?.models || []).find(
+                (m: any) => String(m.id) === String(f.modelId)
+              )?.name,
+              versao: f.version,
+              ano: f.year,
+              km: f.km,
+              fuel: f.fuel,
+              caixa: f.gearbox,
+              power: f.power,
+              evRange: f.evRange,
+              distrito: f.district,
+              notas: f.description,
+            }}
+            onResult={(text) =>
+              setF((prev: any) => ({ ...prev, description: text }))
+            }
           />
         </div>
       </div>

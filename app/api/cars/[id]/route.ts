@@ -89,6 +89,18 @@ export async function PATCH(
   }
 
   const updated = await prisma.car.update({ where: { id: params.id }, data });
+
+  // histórico de preços: regista um ponto quando o preço muda
+  if (
+    data.price !== undefined &&
+    data.price != null &&
+    data.price !== car!.price
+  ) {
+    await prisma.pricePoint
+      .create({ data: { carId: params.id, price: data.price } })
+      .catch(() => {});
+  }
+
   return NextResponse.json({ ok: true, status: updated.status });
 }
 

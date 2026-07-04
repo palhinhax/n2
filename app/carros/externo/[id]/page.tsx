@@ -21,6 +21,13 @@ import { marketStats, ratePrice } from "@/lib/price-intel";
 import FinanceSimulator from "@/components/finance-simulator";
 import ReportButton from "@/components/report-button";
 import CarAssistant from "@/components/car-assistant";
+import ListingHistoryCard from "@/components/listing-history-card";
+import PurchaseReport from "@/components/purchase-report";
+import { externalListingHistory } from "@/lib/listing-history";
+import {
+  estimateAnnualCosts,
+  estimateDepreciation,
+} from "@/lib/purchase-report";
 
 export const dynamic = "force-dynamic";
 
@@ -154,12 +161,26 @@ export default async function ExternalCarDetail({
 
   const sourceLabel = SOURCE_LABEL[listing.source] ?? listing.source;
 
-  const stats = await marketStats({
-    brand: listing.brand,
-    model: listing.model,
-    year: listing.year,
-  });
+  const [stats, history] = await Promise.all([
+    marketStats({
+      brand: listing.brand,
+      model: listing.model,
+      year: listing.year,
+    }),
+    externalListingHistory(listing),
+  ]);
   const rating = ratePrice(listing.price, stats);
+
+  // relatório de compra: custos anuais + desvalorização (cálculo local, rápido)
+  const annualCosts = estimateAnnualCosts({
+    fuel: listing.fuel,
+    power: listing.power,
+    displacement: listing.displacement,
+    co2: listing.co2,
+    year: listing.year,
+    price: listing.price,
+  });
+  const depreciation = estimateDepreciation(listing.price, listing.year);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -309,6 +330,15 @@ export default async function ExternalCarDetail({
               </div>
             )}
 
+            <PurchaseReport
+              brand={listing.brand}
+              model={listing.model}
+              fuel={listing.fuel}
+              year={listing.year}
+              annualCosts={annualCosts}
+              depreciation={depreciation}
+            />
+
             <CarAssistant
               kind="listing"
               id={listing.id}
@@ -381,6 +411,8 @@ export default async function ExternalCarDetail({
               </div>
               {isAdmin && <RefreshDetailsButton id={listing.id} />}
             </div>
+
+            <ListingHistoryCard history={history} />
 
             {listing.price != null && (
               <FinanceSimulator

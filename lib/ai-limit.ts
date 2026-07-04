@@ -5,18 +5,21 @@ import { prisma } from "@/lib/prisma";
  * Configurável por env: AI_DAILY_LIMIT_CHAT, AI_DAILY_LIMIT_AVALIAR.
  */
 
-export type AiKind = "chat" | "avaliar";
+export type AiKind = "chat" | "avaliar" | "descrever";
 
 const DEFAULTS: Record<AiKind, number> = {
   chat: 20, // mensagens/dia
   avaliar: 5, // avaliações/dia
+  descrever: 10, // descrições de anúncio geradas/dia
 };
 
 export function dailyLimit(kind: AiKind): number {
   const env =
     kind === "chat"
       ? process.env.AI_DAILY_LIMIT_CHAT
-      : process.env.AI_DAILY_LIMIT_AVALIAR;
+      : kind === "avaliar"
+        ? process.env.AI_DAILY_LIMIT_AVALIAR
+        : process.env.AI_DAILY_LIMIT_DESCREVER;
   const n = Number(env);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : DEFAULTS[kind];
 }

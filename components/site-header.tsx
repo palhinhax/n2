@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { auth, signOut } from "@/lib/auth";
 import { priceAlertCount, savedSearchAlertCount } from "@/lib/favorites";
+import { unreadNotificationCount } from "@/lib/notifications";
 import MobileNav from "@/components/mobile-nav";
 import HeaderSearch from "@/components/header-search";
 
@@ -10,6 +11,7 @@ export default async function SiteHeader() {
   const user = session?.user as any;
   const alerts = user?.id ? await priceAlertCount(user.id) : 0;
   const searchAlerts = user?.id ? await savedSearchAlertCount(user.id) : 0;
+  const unread = user?.id ? await unreadNotificationCount(user.id) : 0;
 
   const mobileItems = [
     { href: "/carros", label: "Carros" },
@@ -21,6 +23,7 @@ export default async function SiteHeader() {
           { href: "/garagem", label: "A minha garagem" },
           { href: "/favoritos", label: "Favoritos", badge: alerts },
           { href: "/pesquisas", label: "Pesquisas", badge: searchAlerts },
+          { href: "/notificacoes", label: "Notificações", badge: unread },
           { href: "/conta", label: "A minha conta" },
         ]
       : []),
@@ -117,6 +120,20 @@ export default async function SiteHeader() {
             )}
           </nav>
           <div className="ml-auto flex items-center gap-2">
+            {user && (
+              <Link
+                href="/notificacoes"
+                aria-label="Notificações"
+                className="relative hidden rounded-full px-2 py-1.5 text-[1.05rem] hover:bg-cream md:block"
+              >
+                🔔
+                {unread > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-clay px-1 text-[0.65rem] font-bold text-white">
+                    {unread}
+                  </span>
+                )}
+              </Link>
+            )}
             {user ? (
               <>
                 <Link

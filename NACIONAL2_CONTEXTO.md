@@ -161,6 +161,26 @@ Modelos principais em `prisma/schema.prisma`:
   recebidas na gestão do carro.
 - **Lembretes** por carro (IPO, manutenção, seguro, IUC, pneus).
 
+### Inteligência de compra e alertas (julho 2026)
+
+- **Histórico do anúncio**: cada anúncio (externo e do site) regista todos os
+  preços observados (`PricePoint`). A página de detalhe mostra "à venda há X
+  dias", nº de mudanças de preço com linha temporal, e deteção de
+  **republicação** (mesmo carro noutro anúncio removido da mesma fonte).
+- **Alertas inteligentes**: cron diário (`/api/cron/alerts`) cria
+  **notificações in-app** (`/notificacoes`, sino no header) para descidas de
+  preço nos favoritos e carros novos nas pesquisas guardadas. Envia **email**
+  via Resend se `RESEND_API_KEY` estiver definida (caso contrário, só in-app).
+  Idempotente via `Favorite.notifiedPrice` e `SavedSearch.notifiedCount`.
+- **Relatório de compra** na página de detalhe: custos anuais estimados
+  (combustível/energia, IUC, seguro, manutenção — com pressupostos explícitos),
+  valor esperado a 3/5 anos, link para recalls (Safety Gate UE), e "problemas
+  conhecidos do modelo" gerados por IA e **cacheados por marca+modelo+fuel**
+  (`ModelReport`, TTL 180 dias — ~1 chamada de IA por modelo, não por visita).
+- **IA para o vendedor**: botão "✨ Gerar descrição com IA" nos formulários da
+  garagem (`/api/ai/descricao`, límite diário `AI_DAILY_LIMIT_DESCREVER`,
+  default 10/dia).
+
 ### Administração (`/admin`, só role ADMIN)
 
 - Moderação de anúncios pendentes; lista de utilizadores.
@@ -229,8 +249,14 @@ scraping.
 - `AUTH_SECRET`, `NEXTAUTH_URL` — Auth.js.
 - `B2_ENDPOINT`, `B2_REGION`, `B2_KEY_ID`, `B2_APP_KEY`, `B2_BUCKET`,
   `B2_PUBLIC_URL` — Backblaze B2.
-- `CRON_SECRET` — protege a rota de cron do scraping.
+- `CRON_SECRET` — protege as rotas de cron (scraping e alertas).
 - `SCRAPE_DELAY_MS`, `SCRAPE_INTERVAL_DAYS`, `SCRAPE_BATCH_PAGES` — scraping.
+- `OPENAI_API_KEY`, `OPENAI_MODEL` — funcionalidades de IA (chat, avaliação,
+  descrição de anúncio, relatório de modelo).
+- `RESEND_API_KEY`, `EMAIL_FROM` — emails de alerta (opcional; sem key, os
+  alertas ficam só in-app).
+- `AI_DAILY_LIMIT_CHAT`, `AI_DAILY_LIMIT_AVALIAR`, `AI_DAILY_LIMIT_DESCREVER`
+  — limites diários de IA por utilizador.
 
 ---
 

@@ -57,5 +57,13 @@ export async function POST(req: Request) {
         : undefined,
     },
   });
+
+  // histórico de preços: primeiro ponto quando é criado já à venda
+  if (forSale && b.price > 0) {
+    await prisma.pricePoint
+      .create({ data: { carId: car.id, price: +b.price } })
+      .catch(() => {});
+  }
+
   return NextResponse.json({ ok: true, id: car.id });
 }

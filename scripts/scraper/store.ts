@@ -74,17 +74,27 @@ export async function upsertListing(
     ) {
       data.previousPrice = existing.price;
       data.priceChangedAt = now;
+      // ponto no histórico completo de preços
+      await prisma.pricePoint
+        .create({ data: { listingId: existing.id, price: newPrice } })
+        .catch(() => {});
     }
     await prisma.scrapedListing.update({ where: { id: existing.id }, data });
     return "updated";
   }
-  await prisma.scrapedListing.create({
+  const created = await prisma.scrapedListing.create({
     data: {
       source: l.source,
       externalId: l.externalId,
       ...(data as any),
     },
   });
+  // primeiro ponto do histórico de preços
+  if (l.price != null) {
+    await prisma.pricePoint
+      .create({ data: { listingId: created.id, price: l.price } })
+      .catch(() => {});
+  }
   return "created";
 }
 

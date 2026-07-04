@@ -34,11 +34,12 @@ model User {
   website     String?
   hours       String? // horário de funcionamento (texto livre)
 
-  posts        Post[]
-  cars         Car[]
-  offers       Offer[]
-  favorites    Favorite[]
+  posts         Post[]
+  cars          Car[]
+  offers        Offer[]
+  favorites     Favorite[]
   savedSearches SavedSearch[]
+  notifications Notification[]
 }
 
 // Pesquisa guardada por um utilizador, para alertas de novos carros / preço.
@@ -49,6 +50,7 @@ model SavedSearch {
   label     String
   query     String // JSON dos filtros (marca, modelo, precoMax, fuel, …)
   lastCount Int      @default(0) // nº de resultados na última visita
+  notifiedCount Int  @default(0) // nº de resultados na última notificação (cron de alertas)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -70,6 +72,7 @@ model Favorite {
 
   priceWhenSaved Int? // preço no momento em que foi guardado
   seenPrice      Int? // último preço já "visto" pelo utilizador (para notificações)
+  notifiedPrice  Int? // último preço já notificado pelo cron de alertas (evita repetir)
   createdAt      DateTime @default(now())
 
   @@unique([userId, carId])
@@ -138,6 +141,7 @@ model Car {
   reminders Reminder[]
   views     CarView[]
   favorites Favorite[]
+  pricePoints PricePoint[]
 }
 
 // Evento de navegação para o motor de recomendações da homepage.
@@ -251,7 +255,8 @@ model ScrapedListing {
   previousPrice  Int?
   priceChangedAt DateTime?
 
-  favorites Favorite[]
+  favorites   Favorite[]
+  pricePoints PricePoint[]
 
   @@unique([source, externalId])
   @@index([source, active])
@@ -260,6 +265,53 @@ model ScrapedListing {
   @@index([dedupeKey])
   @@index([active, isDuplicate])
   @@index([active, isDuplicate, suspicious])
+}
+
+// Ponto do histórico de preço de um anúncio (do site OU externo).
+// Regista-se um ponto na criação e um por cada mudança de preço detetada —
+// permite mostrar a linha temporal completa e contar mudanças.
+model PricePoint {
+  id        String   @id @default(cuid())
+  carId     String?
+  car       Car?            @relation(fields: [carId], references: [id], onDelete: Cascade)
+  listingId String?
+  listing   ScrapedListing? @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  price     Int
+  createdAt DateTime @default(now())
+
+  @@index([carId, createdAt])
+  @@index([listingId, createdAt])
+}
+
+// Notificação in-app (alertas inteligentes): descidas de preço nos favoritos,
+// carros novos nas pesquisas guardadas, etc.
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String // PRICE_DROP | NEW_MATCHES
+  title     String
+  body      String?
+  url       String? // link interno (ex. /carros/externo/xyz)
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+}
+
+// Relatório de modelo gerado por IA e cacheado (problemas conhecidos,
+// verificações antes de comprar) — partilhado por todos os anúncios do
+// mesmo marca+modelo+combustível, para não repetir chamadas ao modelo.
+model ModelReport {
+  id        String   @id @default(cuid())
+  key       String   @unique // "marca|modelo|combustível" normalizado
+  brand     String
+  model     String
+  fuel      String?
+  content   String // JSON: { issues: [...], checks: [...], summary }
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Contador de uso diário das funcionalidades de IA (chat, avaliação) por
