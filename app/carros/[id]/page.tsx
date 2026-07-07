@@ -283,7 +283,7 @@ export default async function CarDetail({
               />
             </section>
             <section className="mt-7">
-              <AdSlot variant="banner" index={1} />
+              <AdSlot variant="banner" />
             </section>
             <section className="mt-7">
               <div className="n2-card bg-[#FBF3DC] px-5 py-4">
@@ -371,7 +371,7 @@ export default async function CarDetail({
                 vehicleTitle={`${car.brand.name} ${car.model.name}`}
               />
             ) : null}
-            <AdSlot index={3} />
+            <AdSlot />
           </aside>
         </div>
         {similar.length > 0 && (

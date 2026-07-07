@@ -175,7 +175,7 @@ export default async function Home() {
       </section>
 
       <div className="mx-auto mt-6 w-[min(1240px,94%)]">
-        <AdSlot variant="banner" index={0} />
+        <AdSlot variant="banner" />
       </div>
 
       {/* recomendações — aprende com o que o visitante vê, procura e guarda */}
@@ -208,7 +208,7 @@ export default async function Home() {
             {reco.items.slice(0, 3).map((it) => (
               <ListingCard key={`${it.kind}-${it.id}`} item={it} />
             ))}
-            <AdSlot index={1} />
+            <AdSlot />
             {reco.items.slice(3, 7).map((it) => (
               <ListingCard key={`${it.kind}-${it.id}`} item={it} />
             ))}

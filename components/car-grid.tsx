@@ -79,7 +79,7 @@ export default function CarGrid({
       <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {items.map((it, idx) => (
           <Fragment key={`${it.kind}-${it.id}`}>
-            {idx === 2 && <AdSlot index={2} />}
+            {idx === 2 && <AdSlot />}
             {it.kind === "car" ? (
               <CarCard car={it.data} />
             ) : (
