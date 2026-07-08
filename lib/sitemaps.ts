@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { SITE_URL } from "@/lib/seo";
 import { MIN_LISTING_PRICE } from "@/lib/car-listing";
 import { DISTRICTS } from "@/lib/constants";
+import { IMPORT_COUNTRIES } from "@/lib/import-countries";
 import { slugify } from "@/lib/slug";
 import { CATEGORY_PAGES, PRICE_BANDS } from "@/lib/seo-links";
 import { GUIDES } from "@/lib/guides";
@@ -20,6 +21,7 @@ export const SITEMAP_NAMES = [
   "cars",
   "listings",
   "stands",
+  "import",
 ] as const;
 
 export type SitemapName = (typeof SITEMAP_NAMES)[number];
@@ -42,6 +44,12 @@ export async function sitemapEntries(
         { loc: abs("/vender"), changefreq: "monthly", priority: 0.8 },
         { loc: abs("/avaliar"), changefreq: "monthly", priority: 0.7 },
         { loc: abs("/calcular-isv"), changefreq: "monthly", priority: 0.7 },
+        { loc: abs("/simulador-isv"), changefreq: "monthly", priority: 0.7 },
+        {
+          loc: abs("/quanto-custa-importar-carro"),
+          changefreq: "monthly",
+          priority: 0.7,
+        },
         { loc: abs("/sobre"), changefreq: "monthly", priority: 0.6 },
         { loc: abs("/guias"), changefreq: "weekly", priority: 0.7 },
         { loc: abs("/seguranca"), changefreq: "monthly", priority: 0.5 },
@@ -151,6 +159,36 @@ export async function sitemapEntries(
           priority: 0.5,
         };
       });
+    }
+
+    case "import": {
+      const foreign = await prisma.foreignListing.findMany({
+        where: {
+          active: true,
+          status: "APPROVED",
+          isDuplicate: false,
+          suspicious: false,
+          priceEur: { gte: MIN_LISTING_PRICE },
+        },
+        select: { id: true, firstSeenAt: true },
+        orderBy: { lastSeenAt: "desc" },
+        take: MAX_LISTINGS,
+      });
+      return [
+        { loc: abs("/importar-carros"), changefreq: "daily", priority: 0.8 },
+        { loc: abs("/carros-importados"), changefreq: "daily", priority: 0.7 },
+        ...IMPORT_COUNTRIES.map((c) => ({
+          loc: abs(`/importar-carros/${c.slug}`),
+          changefreq: "daily" as const,
+          priority: 0.7,
+        })),
+        ...foreign.map((l) => ({
+          loc: abs(`/importar-carros/anuncio/${l.id}`),
+          lastmod: l.firstSeenAt,
+          changefreq: "weekly" as const,
+          priority: 0.5,
+        })),
+      ];
     }
 
     case "stands": {

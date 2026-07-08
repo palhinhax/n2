@@ -36,11 +36,14 @@ pnpm scrape -- --max-pages 5         # limit pages
 pnpm scrape -- --reset               # restart cycle from scratch
 pnpm normalize:listings              # normalize brand/model fields
 pnpm quality:flag                    # flag suspicious listings
+pnpm scrape:foreign                  # foreign (EU) sources — see "Import Cars from Europe"
+pnpm scrape:foreign -- --source demo-eu   # single foreign source (even if disabled)
 ```
 
 After any Prisma schema change, run `pnpm db:push` (dev) or `pnpm db:migrate` (tracked migration) and restart the dev server.
 
 Run a single test file:
+
 ```bash
 pnpm test -- tests/unit/post-form.test.tsx
 ```
@@ -57,6 +60,7 @@ The most important architectural concept: every listing page merges **two data s
 - `ScrapedListing` — external listings scraped from OLX/Standvirtual/Piscapisca/AutoSapo, must be `active: true`, `isDuplicate: false`, `suspicious: false`.
 
 `lib/car-listing.ts` is the single source of truth for building this merged feed:
+
 - `fetchListingPage()` queries both tables in parallel, merges/sorts client-side, and returns a paginated `ListingPage`.
 - `buildWheres()` translates the `ListingQuery` URL params into Prisma `where` clauses for both sources, handling fuel type normalization (many spelling variations across sites) and brand aliases (VW ↔ Volkswagen).
 - `fetchBrandOptions()` builds the filter dropdowns from both sources combined.
@@ -66,6 +70,7 @@ The `/api/carros` route uses this for infinite scroll (24 items per page).
 ### Polymorphic Models
 
 Several models are intentionally polymorphic (nullable FK to either `Car` or `ScrapedListing`):
+
 - `Favorite` — a user can heart either a native car or an external listing.
 - `PricePoint` — price history for both source types.
 
@@ -108,6 +113,7 @@ Browser → POST `/api/upload` → server uploads to Backblaze B2 via `@aws-sdk/
 ### Alert System
 
 Daily cron at 07:30 (`/api/cron/alerts`) checks each user's favorites and saved searches:
+
 - Favorites: if price dropped below `Favorite.notifiedPrice`, creates a `Notification` (in-app, kind `PRICE_DROP`) and optionally emails via Resend.
 - Saved searches: if `countListings()` returns more than `SavedSearch.notifiedCount`, creates a `NEW_MATCHES` notification.
 
@@ -117,6 +123,16 @@ Notifications appear in the `/notificacoes` page and as a badge on the navbar be
 
 `lib/listing-quality.ts` flags listings with implausible data (km > 1M, price < 500 or > 1M, year out of range, "para peças" in title). Suspicious listings are stored but hidden from all public listing queries, sitemap, and market stats. Their detail page is served with `noindex`.
 
+### Import Cars from Europe
+
+A separate vertical at `/importar-carros` for discovering cars for sale in 8 EU countries and estimating the full cost of importing each one into Portugal.
+
+- `ForeignListing` is its own table (not merged into the main feed). Public queries require `active: true`, `status: "APPROVED"`, `isDuplicate: false`, `suspicious: false`. `lib/import-listing.ts` is the feed/filters module (country, CO₂, engine size, distance, estimated total cost, estimated savings, …).
+- `lib/import-cost.ts` computes the full landed-cost breakdown (transport by country distance, export plates/docs, type-B inspection, legalization, ISV via `lib/car-tax.ts` with the EU used-car age reduction; annual IUC shown separately, not summed). Missing CO₂/displacement are estimated and lower the stated confidence. Logistic/admin assumptions are **configurable at runtime** in the `ImportConfig` table (edited at `/admin/importacao`), not hardcoded.
+- Comparison with the PT market uses `lib/price-intel.ts` medians; `rateImportDeal()` yields `EXCELLENT | GOOD | NEUTRAL | BAD`. Cached columns (`importTotalEur`, `ptMarketMedian`, `savingsEur`, `dealRating`) are refreshed at the end of each scrape cycle so they work as indexed filters/sorts; the detail page recomputes live with year-adjusted stats.
+- The foreign scraper lives in `scripts/scraper/foreign/` (same cursor/cycle mechanics as the national one; state in `ScrapeState` under `import:*` keys). Sources are DB rows (`ImportSource`, managed in the admin) pointing to adapters registered in `sites/index.ts`. Adapters must call `assertAllowedByRobots()` before every request — a disallowed path aborts the source and logs the reason. Real sources are seeded **disabled** (admin reviews ToS/robots first); the `demo` adapter generates synthetic listings for development. Cron: `/api/cron/scrape-foreign` (every 2h, `CRON_SECRET`), logs in `ImportScrapeLog`.
+- Leads from the "Quero importar este carro" button land in `ImportLead` (managed + CSV export at `/admin/importacao`). SEO pages: `/importar-carros/[pais]`, `/carros-importados`, `/simulador-isv`, `/quanto-custa-importar-carro`.
+
 ### Visitor Tracking & Recommendations
 
 `BrowseEvent` records page views and searches with denormalized car attributes (no FK, intentional) so events survive listing deletion and anonymous+logged sessions can be merged. The visitor UUID from the `n2vid` cookie is set in the middleware before the first request hits any page handler.
@@ -125,20 +141,20 @@ Notifications appear in the `/notificacoes` page and as a badge on the navbar be
 
 ## Key `lib/` Modules
 
-| Module | Purpose |
-|--------|---------|
-| `car-listing.ts` | Merged listing feed, filters, brand options |
-| `price-intel.ts` | Market price stats and rating |
-| `assistant.ts` | AI system prompts and OpenAI tool definitions |
-| `ai-limit.ts` | Daily AI quota enforcement |
-| `listing-quality.ts` | Suspicious listing detection |
-| `search.ts` | Fuzzy brand/model search (bigram similarity) |
-| `b2.ts` | Backblaze B2 image upload |
-| `favorites.ts` | Polymorphic favorite logic |
-| `notifications.ts` | In-app notification creation |
-| `vehicle-normalize.ts` | Brand/model normalization for scraper |
-| `seo.ts` | Canonical URLs, metadata helpers |
-| `constants.ts` | Shared enums (fuels, districts, reminder types, etc.) |
+| Module                 | Purpose                                               |
+| ---------------------- | ----------------------------------------------------- |
+| `car-listing.ts`       | Merged listing feed, filters, brand options           |
+| `price-intel.ts`       | Market price stats and rating                         |
+| `assistant.ts`         | AI system prompts and OpenAI tool definitions         |
+| `ai-limit.ts`          | Daily AI quota enforcement                            |
+| `listing-quality.ts`   | Suspicious listing detection                          |
+| `search.ts`            | Fuzzy brand/model search (bigram similarity)          |
+| `b2.ts`                | Backblaze B2 image upload                             |
+| `favorites.ts`         | Polymorphic favorite logic                            |
+| `notifications.ts`     | In-app notification creation                          |
+| `vehicle-normalize.ts` | Brand/model normalization for scraper                 |
+| `seo.ts`               | Canonical URLs, metadata helpers                      |
+| `constants.ts`         | Shared enums (fuels, districts, reminder types, etc.) |
 
 ---
 

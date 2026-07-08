@@ -71,6 +71,9 @@ export default async function Admin() {
           <Link href="/admin/financiamento" className="btn-line btn-sm">
             💶 Pedidos de financiamento →
           </Link>
+          <Link href="/admin/importacao" className="btn-line btn-sm">
+            🌍 Importação da Europa →
+          </Link>
           <Link href="/admin/reports" className="btn-line btn-sm">
             ⚑ Denúncias
             {nNewReports > 0 && (

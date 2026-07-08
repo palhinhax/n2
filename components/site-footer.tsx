@@ -44,6 +44,19 @@ export default function SiteFooter() {
                   Calcular ISV / IUC
                 </Link>
               </li>
+              <li>
+                <Link href="/importar-carros" className="hover:text-stone2">
+                  Importar da Europa
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/quanto-custa-importar-carro"
+                  className="hover:text-stone2"
+                >
+                  Quanto custa importar
+                </Link>
+              </li>
             </ul>
           </div>
           <div>
