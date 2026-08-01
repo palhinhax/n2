@@ -203,9 +203,6 @@ export default function InstagramStudio({
           <h2 className="font-head text-[1.35rem] font-extrabold text-ink">
             {title}
           </h2>
-          <span className="text-[0.85rem] text-n2muted">
-            {kind === "car" ? "Anúncio do site" : "Anúncio externo"}
-          </span>
         </div>
 
         <label className="text-[0.85rem] font-semibold text-ink">

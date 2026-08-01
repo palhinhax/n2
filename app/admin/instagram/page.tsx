@@ -151,9 +151,7 @@ export default async function InstagramAdmin({
             title={subject.title}
             fields={canvasFields(subject)}
             defaultCaption={buildCaption(subject)}
-            defaultBadge={
-              subject.source ? `via ${subject.source}` : "No Nacional 2"
-            }
+            defaultBadge="No Nacional 2"
             hasPhoto={!!subject.photoUrl}
             apiEnabled={apiEnabled && !accountError}
           />
