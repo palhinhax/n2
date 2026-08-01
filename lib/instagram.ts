@@ -107,6 +107,27 @@ export async function loadSubject(
   };
 }
 
+/**
+ * Campos prontos para o desenho no canvas (ver lib/instagram-canvas.ts).
+ * Fica aqui, e não no módulo do canvas, porque é calculado no servidor e
+ * passado como props — o módulo do canvas só sabe desenhar.
+ */
+export function canvasFields(s: IgSubject) {
+  return {
+    headline: [s.brand, s.model].filter(Boolean).join(" ") || s.title,
+    sub: s.version ?? "",
+    specs: [
+      s.year ? String(s.year) : null,
+      s.km != null ? `${s.km.toLocaleString("pt-PT")} km` : null,
+      s.fuel,
+      s.gearbox,
+      s.power ? `${s.power} cv` : null,
+    ].filter((v): v is string => !!v),
+    price: s.price ? fmtEur(s.price) : null,
+    location: s.location || "Portugal",
+  };
+}
+
 const HASHTAG_BASE = [
   "#nacional2",
   "#carrosusados",
