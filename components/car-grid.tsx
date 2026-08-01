@@ -79,7 +79,13 @@ export default function CarGrid({
       <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {items.map((it, idx) => (
           <Fragment key={`${it.kind}-${it.id}`}>
-            {idx === 2 && <LuzzoAd variant="barra" />}
+            {idx === 2 && (
+              // ocupa a linha toda: numa célula normal ficava uma tira de 44px
+              // ao lado de cards de ~380px, com um buraco visível na grelha
+              <div className="col-span-full">
+                <LuzzoAd variant="barra" />
+              </div>
+            )}
             {it.kind === "car" ? (
               <CarCard car={it.data} />
             ) : (

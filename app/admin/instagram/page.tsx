@@ -96,11 +96,20 @@ export default async function InstagramAdmin({
   const id = searchParams.id ?? null;
   const q = searchParams.q ?? "";
 
-  const [subject, candidates, history] = await Promise.all([
+  const apiEnabled = instagramConfigured();
+
+  const [subject, candidates, history, account] = await Promise.all([
     kind && id ? loadSubject(kind, id) : Promise.resolve(null),
     findCandidates(q),
     prisma.instagramPost.findMany({ orderBy: { createdAt: "desc" }, take: 10 }),
+    // confirma logo o token: os de longa duração expiram ao fim de 60 dias e
+    // é melhor saber isso aqui do que ao carregar em "Publicar"
+    apiEnabled
+      ? checkInstagramAccount().catch((e: Error) => ({ error: e.message }))
+      : Promise.resolve(null),
   ]);
+  const accountError = account && "error" in account ? account.error : null;
+  const username = account && "username" in account ? account.username : null;
 
   return (
     <div className="flex min-h-screen flex-col bg-cream">
@@ -112,12 +121,27 @@ export default async function InstagramAdmin({
         <h1 className="mb-1 mt-2 font-head text-[2rem] font-extrabold text-ink">
           📸 Posts para Instagram
         </h1>
-        <p className="mb-6 text-[0.95rem] text-n2muted">
+        <p className="mb-3 text-[0.95rem] text-n2muted">
           Gera a imagem (1080×1350) e a legenda de um anúncio.{" "}
-          {instagramConfigured()
+          {apiEnabled
             ? "Podes publicar direto ou descarregar para publicar à mão."
-            : "A publicação por API está desligada — define IG_USER_ID e IG_ACCESS_TOKEN para a ativar. Até lá, descarrega a imagem e publica à mão."}
+            : "A publicação por API está desligada — define IG_ACCESS_TOKEN para a ativar. Até lá, descarrega a imagem e publica à mão."}
         </p>
+
+        {accountError ? (
+          <div className="mb-6 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-[0.9rem] text-red-900">
+            <b>O Instagram recusou o token:</b> {accountError}
+            <div className="mt-1 text-[0.85rem]">
+              Os tokens de longa duração expiram ao fim de 60 dias — gera um
+              novo. A publicação por API não vai funcionar até lá; o download
+              manual continua a funcionar.
+            </div>
+          </div>
+        ) : username ? (
+          <div className="mb-6 text-[0.9rem] font-semibold text-olive">
+            ✓ Ligado a @{username} — é aqui que os posts saem.
+          </div>
+        ) : null}
 
         {subject && kind && id ? (
           <InstagramStudio
