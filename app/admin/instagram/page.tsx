@@ -10,6 +10,7 @@ import {
   buildCaption,
   canvasFields,
   instagramConfigured,
+  checkInstagramAccount,
   type IgKind,
 } from "@/lib/instagram";
 import { fmtEur } from "@/lib/constants";
@@ -154,7 +155,7 @@ export default async function InstagramAdmin({
               subject.source ? `via ${subject.source}` : "No Nacional 2"
             }
             hasPhoto={!!subject.photoUrl}
-            apiEnabled={instagramConfigured()}
+            apiEnabled={apiEnabled && !accountError}
           />
         ) : null}
 
