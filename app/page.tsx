@@ -236,8 +236,8 @@ export default async function Home() {
             {reco.items.slice(0, 3).map((it) => (
               <ListingCard key={`${it.kind}-${it.id}`} item={it} />
             ))}
-            <div className="col-span-full">
-              <LuzzoAd variant="barra" />
+            <div className="flex justify-center">
+              <LuzzoAd variant="retangulo" />
             </div>
             {reco.items.slice(3, 7).map((it) => (
               <ListingCard key={`${it.kind}-${it.id}`} item={it} />

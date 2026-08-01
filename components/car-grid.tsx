@@ -80,10 +80,9 @@ export default function CarGrid({
         {items.map((it, idx) => (
           <Fragment key={`${it.kind}-${it.id}`}>
             {idx === 2 && (
-              // ocupa a linha toda: numa célula normal ficava uma tira de 44px
-              // ao lado de cards de ~380px, com um buraco visível na grelha
-              <div className="col-span-full">
-                <LuzzoAd variant="barra" />
+              // o retângulo 300x250 ocupa uma célula da grelha, como um card
+              <div className="flex justify-center">
+                <LuzzoAd variant="retangulo" />
               </div>
             )}
             {it.kind === "car" ? (

@@ -131,7 +131,14 @@ The image is drawn **in the browser** on a `<canvas>` (`lib/instagram-canvas.ts`
 
 Photos load through `GET /api/admin/instagram/photo?kind=&id=` — a same-origin proxy so the canvas isn't tainted and CDN hotlink blocks are bypassed. The URL is always read from the listing record, never taken from the client, so it is not an open proxy.
 
-Captions come from `buildCaption()` (deterministic) or `POST /api/admin/instagram/caption` (OpenAI, falls back to the deterministic one). `POST /api/admin/instagram/publish` takes `mode: "manual"` (just logs an `InstagramPost` row) or `mode: "api"` (receives the PNG as a base64 data URL, uploads it to B2 for a public URL, then runs the Graph API create-container → poll → publish flow). API publishing needs `IG_USER_ID` + `IG_ACCESS_TOKEN` **and** B2 configured; without them the button is disabled and only manual download works.
+Captions come from `buildCaption()` (deterministic) or `POST /api/admin/instagram/caption` (OpenAI, falls back to the deterministic one). `POST /api/admin/instagram/publish` takes `mode: "manual"` (just logs an `InstagramPost` row) or `mode: "api"` (receives the image as a base64 data URL, uploads it to B2 for a public URL, then runs create-container → poll status → publish).
+
+Two gotchas the API path depends on, both handled in `lib/instagram.ts`:
+
+- **Host follows the token type.** `IGAA…` tokens (Instagram Login) only work against `graph.instagram.com`; `EAA…` tokens (Facebook Login for Business) only against `graph.facebook.com`. Wrong host ⇒ `Invalid OAuth access token - Cannot parse access token`. `graphHost()` picks by prefix, `IG_GRAPH_HOST` overrides. On `graph.instagram.com` the account node is `me` — the app-scoped ID differs from the IG Business Account ID, so `IG_USER_ID` is only needed for the Facebook flow.
+- **Instagram only accepts JPEG** for content publishing. The canvas exports JPEG for the API path and PNG for manual download.
+
+`/admin/instagram` calls `checkInstagramAccount()` on load so an expired token (they last 60 days) shows up as a banner instead of failing at publish time. Without a working token the publish button is disabled and only manual download works.
 
 ### Suspicious Listing Detection
 
