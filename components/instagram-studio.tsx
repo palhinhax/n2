@@ -37,6 +37,7 @@ export default function InstagramStudio({
   const [drawing, setDrawing] = useState(true);
   const [photoOk, setPhotoOk] = useState(true);
   const [busy, setBusy] = useState<null | "ai" | "download" | "publish">(null);
+  const [publishArmed, setPublishArmed] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(
     null
   );
@@ -62,6 +63,16 @@ export default function InstagramStudio({
     const t = setTimeout(redraw, 250);
     return () => clearTimeout(t);
   }, [redraw]);
+
+  useEffect(() => {
+    if (!publishArmed) return;
+    const t = setTimeout(() => setPublishArmed(false), 6000);
+    return () => clearTimeout(t);
+  }, [publishArmed]);
+
+  useEffect(() => {
+    setPublishArmed(false);
+  }, [kind, id, caption, badge]);
 
   async function generateCaption() {
     setBusy("ai");
@@ -99,6 +110,7 @@ export default function InstagramStudio({
 
   async function download() {
     if (!canvasRef.current) return;
+    setPublishArmed(false);
     setBusy("download");
     setMsg(null);
     try {
@@ -132,12 +144,15 @@ export default function InstagramStudio({
 
   async function publish() {
     if (!canvasRef.current) return;
-    if (
-      !confirm(
-        `Publicar "${title}" no Instagram agora?\n\nA publicação fica visível no perfil e não é possível apagá-la daqui.`
-      )
-    )
+    if (!publishArmed) {
+      setPublishArmed(true);
+      setMsg({
+        kind: "err",
+        text: `Clica outra vez para publicar "${title}" no Instagram.`,
+      });
       return;
+    }
+    setPublishArmed(false);
     setBusy("publish");
     setMsg(null);
     try {
@@ -246,7 +261,9 @@ export default function InstagramStudio({
           </button>
           <button
             type="button"
-            className="btn-olive btn-xs disabled:opacity-50"
+            className={`btn-xs disabled:opacity-50 ${
+              publishArmed ? "btn-clay" : "btn-olive"
+            }`}
             onClick={publish}
             disabled={busy !== null || drawing || !apiEnabled}
             title={
@@ -255,7 +272,11 @@ export default function InstagramStudio({
                 : "Falta configurar IG_USER_ID / IG_ACCESS_TOKEN"
             }
           >
-            {busy === "publish" ? "A publicar…" : "📸 Publicar no Instagram"}
+            {busy === "publish"
+              ? "A publicar…"
+              : publishArmed
+                ? "Confirmar publicação"
+                : "📸 Publicar no Instagram"}
           </button>
         </div>
 
