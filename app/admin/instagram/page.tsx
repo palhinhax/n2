@@ -1,0 +1,233 @@
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import SiteHeader from "@/components/site-header";
+import SiteFooter from "@/components/site-footer";
+import InstagramStudio from "@/components/instagram-studio";
+import {
+  loadSubject,
+  buildCaption,
+  instagramConfigured,
+  type IgKind,
+} from "@/lib/instagram";
+import { fmtEur } from "@/lib/constants";
+
+export const dynamic = "force-dynamic";
+
+type Search = { kind?: string; id?: string; q?: string };
+
+/** Candidatos a post: carros do site publicados + anúncios externos. */
+async function findCandidates(q: string) {
+  const text = q.trim();
+  const like = { contains: text, mode: "insensitive" as const };
+
+  const [cars, listings] = await Promise.all([
+    prisma.car.findMany({
+      where: {
+        status: "APPROVED",
+        forSale: true,
+        ...(text
+          ? {
+              OR: [
+                { brand: { name: like } },
+                { model: { name: like } },
+                { version: like },
+              ],
+            }
+          : {}),
+      },
+      include: { brand: true, model: true },
+      orderBy: [{ featured: "desc" }, { updatedAt: "desc" }],
+      take: 12,
+    }),
+    text
+      ? prisma.scrapedListing.findMany({
+          where: {
+            active: true,
+            isDuplicate: false,
+            suspicious: false,
+            OR: [{ title: like }, { brand: like }, { model: like }],
+          },
+          orderBy: { firstSeenAt: "desc" },
+          take: 12,
+        })
+      : Promise.resolve([] as any[]),
+  ]);
+
+  return [
+    ...cars.map((c) => ({
+      kind: "car" as const,
+      id: c.id,
+      title: [c.brand.name, c.model.name, c.version].filter(Boolean).join(" "),
+      meta: `${c.year} · ${c.km.toLocaleString("pt-PT")} km · ${fmtEur(c.price)}`,
+      tag: c.featured ? "★ Destaque" : "Do site",
+    })),
+    ...listings.map((l) => ({
+      kind: "listing" as const,
+      id: l.id,
+      title: l.title,
+      meta: [
+        l.year,
+        l.km != null ? `${l.km.toLocaleString("pt-PT")} km` : null,
+        fmtEur(l.price),
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      tag: l.source,
+    })),
+  ];
+}
+
+export default async function InstagramAdmin({
+  searchParams,
+}: {
+  searchParams: Search;
+}) {
+  const session = await auth();
+  if ((session?.user as any)?.role !== "ADMIN") notFound();
+
+  const kind = (
+    searchParams.kind === "car" || searchParams.kind === "listing"
+      ? searchParams.kind
+      : null
+  ) as IgKind | null;
+  const id = searchParams.id ?? null;
+  const q = searchParams.q ?? "";
+
+  const [subject, candidates, history] = await Promise.all([
+    kind && id ? loadSubject(kind, id) : Promise.resolve(null),
+    findCandidates(q),
+    prisma.instagramPost.findMany({ orderBy: { createdAt: "desc" }, take: 10 }),
+  ]);
+
+  return (
+    <div className="flex min-h-screen flex-col bg-cream">
+      <SiteHeader />
+      <div className="mx-auto w-[min(1100px,94%)] py-7">
+        <Link href="/admin" className="text-[0.9rem] font-semibold text-bark">
+          ← Administração
+        </Link>
+        <h1 className="mb-1 mt-2 font-head text-[2rem] font-extrabold text-ink">
+          📸 Posts para Instagram
+        </h1>
+        <p className="mb-6 text-[0.95rem] text-n2muted">
+          Gera a imagem (1080×1350) e a legenda de um anúncio.{" "}
+          {instagramConfigured()
+            ? "Podes publicar direto ou descarregar para publicar à mão."
+            : "A publicação por API está desligada — define IG_USER_ID e IG_ACCESS_TOKEN para a ativar. Até lá, descarrega a imagem e publica à mão."}
+        </p>
+
+        {subject && kind && id ? (
+          <InstagramStudio
+            kind={kind}
+            id={id}
+            title={subject.title}
+            defaultCaption={buildCaption(subject)}
+            defaultBadge={
+              subject.source ? `via ${subject.source}` : "No Nacional 2"
+            }
+            apiEnabled={instagramConfigured()}
+          />
+        ) : null}
+
+        <section className="mt-8">
+          <h2 className="mb-3 font-head text-[1.4rem] font-extrabold text-ink">
+            Escolher anúncio
+          </h2>
+          <form className="mb-3 flex gap-2" action="/admin/instagram">
+            <input
+              name="q"
+              defaultValue={q}
+              placeholder="Procurar por marca, modelo…"
+              className="finput flex-1"
+            />
+            <button className="btn-olive btn-sm" type="submit">
+              Procurar
+            </button>
+          </form>
+          <p className="mb-3 text-[0.85rem] text-n2muted2">
+            Sem pesquisa mostramos os anúncios do site. Escreve algo para
+            incluir também os anúncios externos.
+          </p>
+          <div className="flex flex-col gap-2">
+            {candidates.length === 0 && (
+              <div className="n2-card p-6 text-n2muted">Nada encontrado.</div>
+            )}
+            {candidates.map((c) => (
+              <Link
+                key={`${c.kind}-${c.id}`}
+                href={`/admin/instagram?kind=${c.kind}&id=${c.id}${
+                  q ? `&q=${encodeURIComponent(q)}` : ""
+                }`}
+                className="n2-card flex flex-wrap items-center gap-3 px-4 py-3 hover:shadow-warmlg"
+              >
+                <div>
+                  <b className="font-head text-[1.05rem] text-ink">{c.title}</b>
+                  <div className="text-[0.85rem] text-n2muted">{c.meta}</div>
+                </div>
+                <span className="n2-tag ml-auto bg-weathered">{c.tag}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {history.length > 0 && (
+          <section className="mt-8">
+            <h2 className="mb-3 font-head text-[1.4rem] font-extrabold text-ink">
+              Histórico
+            </h2>
+            <div className="n2-card overflow-x-auto">
+              <table className="w-full text-[0.9rem]">
+                <thead>
+                  <tr className="border-b border-outline text-left font-head text-[0.75rem] uppercase tracking-wider text-n2muted2">
+                    <th className="px-4 py-2">Carro</th>
+                    <th className="px-4 py-2">Estado</th>
+                    <th className="px-4 py-2">Quando</th>
+                    <th className="px-4 py-2">Link</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.map((p) => (
+                    <tr key={p.id} className="border-b border-outline/60">
+                      <td className="px-4 py-2 font-semibold text-ink">
+                        {p.title}
+                      </td>
+                      <td className="px-4 py-2">
+                        {p.status === "PUBLISHED"
+                          ? "✅ Publicado"
+                          : p.status === "DOWNLOADED"
+                            ? "⬇ Descarregado"
+                            : p.status === "FAILED"
+                              ? `⚠ Falhou — ${p.error ?? ""}`
+                              : p.status}
+                      </td>
+                      <td className="px-4 py-2 text-n2muted">
+                        {p.createdAt.toLocaleString("pt-PT")}
+                      </td>
+                      <td className="px-4 py-2">
+                        {p.permalink ? (
+                          <a
+                            href={p.permalink}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-semibold text-bark underline"
+                          >
+                            ver
+                          </a>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+      </div>
+      <SiteFooter />
+    </div>
+  );
+}

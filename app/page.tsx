@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { auth } from "@/lib/auth";
 import { getVisitorId } from "@/lib/visitor";
-import { fetchBrandOptions } from "@/lib/car-listing";
+import { fetchBrandOptions, fetchFeaturedCars } from "@/lib/car-listing";
 import {
   getRecommendations,
   getRecentListings,
@@ -59,7 +59,7 @@ export default async function Home() {
   const session = await auth();
   const visitorId = getVisitorId();
 
-  const [reco, brands, totals] = await Promise.all([
+  const [reco, brands, totals, featured] = await Promise.all([
     getRecommendations({
       visitorId,
       userId: session?.user?.id ?? null,
@@ -67,6 +67,7 @@ export default async function Home() {
     }),
     fetchBrandOptions(),
     countAllForSale(),
+    fetchFeaturedCars(4),
   ]);
 
   // "Acabados de chegar" sem repetir o que já está nas recomendações
@@ -178,13 +179,40 @@ export default async function Home() {
         <AdSlot variant="banner" />
       </div>
 
+      {/* destaques escolhidos à mão pela equipa (admin) */}
+      {featured.length > 0 && (
+        <section className="mx-auto mt-8 w-[min(1240px,94%)]">
+          <div className="mb-4 flex items-end justify-between">
+            <div>
+              <span className="font-head text-[0.82rem] font-bold uppercase tracking-[0.14em] text-clay">
+                ★ Escolhidos pela equipa
+              </span>
+              <h2 className="font-head text-[1.7rem] font-extrabold text-ink">
+                Em destaque
+              </h2>
+            </div>
+            <Link
+              href="/carros"
+              className="font-semibold text-bark underline underline-offset-2"
+            >
+              Ver todos →
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {featured.map((c) => (
+              <CarCard key={c.id} car={c} />
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* recomendações — aprende com o que o visitante vê, procura e guarda */}
       {reco.items.length > 0 && (
         <section className="mx-auto mt-8 w-[min(1240px,94%)]">
           <div className="mb-4 flex items-end justify-between">
             <div>
               <span className="font-head text-[0.82rem] font-bold uppercase tracking-[0.14em] text-clay">
-                {reco.personalized ? "Escolhidos para ti" : "Em destaque"}
+                {reco.personalized ? "Escolhidos para ti" : "Para explorar"}
               </span>
               <h2 className="font-head text-[1.7rem] font-extrabold text-ink">
                 {reco.personalized

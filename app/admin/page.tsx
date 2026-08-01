@@ -5,8 +5,10 @@ import { prisma } from "@/lib/prisma";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import AdminActions from "@/components/admin-actions";
+import FeatureToggle from "@/components/feature-toggle";
 import ScraperAdmin from "@/components/scraper-admin";
 import { fmtEur } from "@/lib/constants";
+import { MAX_FEATURED } from "@/lib/car-listing";
 
 export const dynamic = "force-dynamic";
 
@@ -14,11 +16,22 @@ export default async function Admin() {
   const session = await auth();
   if ((session?.user as any)?.role !== "ADMIN") notFound();
 
-  const [pending, users, counts] = await Promise.all([
+  const [pending, live, users, counts] = await Promise.all([
     prisma.car.findMany({
       where: { status: "PENDING" },
       include: { brand: true, model: true, owner: true },
       orderBy: { updatedAt: "asc" },
+    }),
+    // anúncios publicados — candidatos a destaque (destacados primeiro)
+    prisma.car.findMany({
+      where: { status: "APPROVED", forSale: true },
+      include: { brand: true, model: true, owner: true },
+      orderBy: [
+        { featured: "desc" },
+        { featuredAt: "desc" },
+        { updatedAt: "desc" },
+      ],
+      take: 30,
     }),
     prisma.user.findMany({
       orderBy: { createdAt: "desc" },
@@ -30,9 +43,12 @@ export default async function Admin() {
       prisma.car.count(),
       prisma.car.count({ where: { forSale: true, status: "APPROVED" } }),
       prisma.offer.count(),
+      prisma.car.count({
+        where: { featured: true, forSale: true, status: "APPROVED" },
+      }),
     ]),
   ]);
-  const [nUsers, nCars, nLive, nOffers] = counts;
+  const [nUsers, nCars, nLive, nOffers, nFeatured] = counts;
 
   // estatísticas do scraping (por fonte + detalhes enriquecidos)
   const [nExtActive, nEnriched, bySource] = await Promise.all([
@@ -70,6 +86,9 @@ export default async function Admin() {
         <div className="mb-6 flex flex-wrap gap-2">
           <Link href="/admin/financiamento" className="btn-line btn-sm">
             💶 Pedidos de financiamento →
+          </Link>
+          <Link href="/admin/instagram" className="btn-line btn-sm">
+            📸 Posts para Instagram →
           </Link>
           <Link href="/admin/reports" className="btn-line btn-sm">
             ⚑ Denúncias
@@ -153,6 +172,54 @@ export default async function Admin() {
                       Ver
                     </Link>
                     <AdminActions carId={c.id} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="mb-8">
+          <h2 className="mb-1 font-head text-[1.4rem] font-extrabold text-ink">
+            ★ Destaques ({nFeatured})
+          </h2>
+          <p className="mb-3 text-[0.9rem] text-n2muted">
+            Anúncios destacados aparecem no topo das listagens e na homepage.
+            Máximo recomendado: {MAX_FEATURED}.
+          </p>
+          {live.length === 0 ? (
+            <div className="n2-card p-6 text-n2muted">
+              Ainda não há anúncios publicados para destacar.
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {live.map((c) => (
+                <div
+                  key={c.id}
+                  className={`n2-card flex flex-wrap items-center gap-3 px-4 py-3 ${
+                    c.featured ? "border-clay" : ""
+                  }`}
+                >
+                  <div>
+                    <b className="font-head text-[1.1rem] text-ink">
+                      {c.brand.name} {c.model.name} {c.version || ""}
+                    </b>
+                    <div className="text-[0.85rem] text-n2muted">
+                      {c.year} · {c.km.toLocaleString("pt-PT")} km · {c.fuel} ·{" "}
+                      {fmtEur(c.price)} · por {c.owner.name}
+                    </div>
+                  </div>
+                  <div className="ml-auto flex items-center gap-2">
+                    <Link href={`/carros/${c.id}`} className="btn-line btn-xs">
+                      Ver
+                    </Link>
+                    <Link
+                      href={`/admin/instagram?kind=car&id=${c.id}`}
+                      className="btn-line btn-xs"
+                    >
+                      📸 Instagram
+                    </Link>
+                    <FeatureToggle carId={c.id} featured={c.featured} />
                   </div>
                 </div>
               ))}

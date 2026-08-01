@@ -36,6 +36,19 @@ export interface ListingPage {
 // e na página de detalhe.
 export const MIN_LISTING_PRICE = 300;
 
+// Teto de destaques mostrados no topo de uma listagem. É um destaque editorial
+// manual do admin, não um produto pago — se alguma vez passar disto, a listagem
+// deixava de ser uma listagem.
+export const MAX_FEATURED = 12;
+
+const CAR_INCLUDE = {
+  brand: true,
+  model: true,
+  photos: { orderBy: { position: "asc" } },
+  owner: true,
+  _count: { select: { offers: true } },
+} as const;
+
 const CURRENT_YEAR = new Date().getFullYear();
 // Sanitização de números vindos da query — valores inválidos são ignorados
 // (não filtram nada) em vez de partir a pesquisa.
@@ -297,6 +310,20 @@ export function buildWheres(q: ListingQuery): { where: any; whereExt: any } {
   return { where, whereExt };
 }
 
+/**
+ * Anúncios do site destacados pelo admin, do mais recente para o mais antigo.
+ * Só entram anúncios publicados — se um carro sair de venda ou for rejeitado,
+ * desaparece dos destaques mesmo que a flag continue ligada.
+ */
+export async function fetchFeaturedCars(limit = MAX_FEATURED) {
+  return prisma.car.findMany({
+    where: { featured: true, forSale: true, status: "APPROVED" },
+    include: CAR_INCLUDE,
+    orderBy: { featuredAt: "desc" },
+    take: limit,
+  });
+}
+
 /** Conta quantos carros (site + externos) correspondem a uma pesquisa. */
 export async function countListings(q: ListingQuery): Promise<number> {
   const { where, whereExt } = buildWheres(q);
@@ -337,16 +364,10 @@ export async function fetchListingPage(
   // para devolver [offset, offset+limit) da lista combinada e ordenada,
   // basta ir buscar os primeiros (offset+limit) de cada fonte e juntar.
   const need = offset + limit;
-  const [cars, external] = await Promise.all([
+  const [cars, external, featured] = await Promise.all([
     prisma.car.findMany({
       where,
-      include: {
-        brand: true,
-        model: true,
-        photos: { orderBy: { position: "asc" } },
-        owner: true,
-        _count: { select: { offers: true } },
-      },
+      include: CAR_INCLUDE,
       orderBy,
       take: need,
     }),
@@ -354,6 +375,14 @@ export async function fetchListingPage(
       where: whereExt,
       orderBy: orderByExt,
       take: need,
+    }),
+    // destaques do admin — query própria (pequena) para não dependerem do
+    // `take` acima: um destaque antigo tem de aparecer na 1.ª página na mesma.
+    prisma.car.findMany({
+      where: { ...where, featured: true },
+      include: CAR_INCLUDE,
+      orderBy: { featuredAt: "desc" },
+      take: MAX_FEATURED,
     }),
   ]);
 
@@ -372,13 +401,16 @@ export async function fetchListingPage(
         ? (e.km ?? Number.MAX_SAFE_INTEGER)
         : -e.firstSeenAt.getTime();
 
+  const featuredIds = new Set(featured.map((c) => c.id));
   const merged = [
-    ...cars.map((c) => ({
-      kind: "car" as const,
-      sortKey: sortKeyCar(c),
-      id: c.id,
-      data: c,
-    })),
+    ...cars
+      .filter((c) => !featuredIds.has(c.id))
+      .map((c) => ({
+        kind: "car" as const,
+        sortKey: sortKeyCar(c),
+        id: c.id,
+        data: c,
+      })),
     ...external.map((e) => ({
       kind: "ext" as const,
       sortKey: sortKeyExt(e),
@@ -387,6 +419,17 @@ export async function fetchListingPage(
     })),
   ].sort((a, b) =>
     ordenar === "precoDesc" ? b.sortKey - a.sortKey : a.sortKey - b.sortKey
+  );
+
+  // destaques primeiro, sempre — em qualquer ordenação e em qualquer filtro.
+  // Ficam no início da lista completa, por isso a paginação continua estável.
+  merged.unshift(
+    ...featured.map((c) => ({
+      kind: "car" as const,
+      sortKey: sortKeyCar(c),
+      id: c.id,
+      data: c,
+    }))
   );
 
   const pageItems = merged
@@ -419,7 +462,7 @@ export async function fetchListingPage(
 
   // há mais? se alguma fonte devolveu o máximo pedido, há provavelmente mais
   const maybeMore =
-    cars.length + external.length > offset + limit ||
+    merged.length > offset + limit ||
     cars.length === need ||
     external.length === need;
   const nextOffset =

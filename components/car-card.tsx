@@ -15,8 +15,20 @@ export default function CarCard({ car }: { car: any }) {
       className="n2-card flex flex-col overflow-hidden transition hover:-translate-y-1 hover:shadow-warmlg"
     >
       <div className="relative flex aspect-[16/10] items-center justify-center bg-gradient-to-b from-[#FCF4E2] to-[#F4E2BC]">
+        {car.featured && (
+          <span className="absolute left-2 top-2 z-10 rounded-full bg-clay px-2 py-0.5 font-head text-[0.7rem] font-bold uppercase tracking-wider text-white shadow-warm">
+            ★ Destaque
+          </span>
+        )}
         {car.fuel && (
-          <FuelBadge fuel={car.fuel} className="absolute left-2 top-2 z-10" />
+          <FuelBadge
+            fuel={car.fuel}
+            className={
+              car.featured
+                ? "absolute left-2 top-9 z-10"
+                : "absolute left-2 top-2 z-10"
+            }
+          />
         )}
         <FavoriteButton kind="car" id={car.id} />
         {photo ? (

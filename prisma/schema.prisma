@@ -134,6 +134,11 @@ model Car {
   negotiable Boolean @default(true)
   status     String  @default("GARAGE") // GARAGE | PENDING | APPROVED | REJECTED
 
+  // destaque editorial — só o admin liga/desliga (não é destaque pago).
+  // Anúncios destacados aparecem no topo das listagens e na homepage.
+  featured   Boolean   @default(false)
+  featuredAt DateTime? // quando foi destacado (ordena os destaques entre si)
+
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   photos    Photo[]
@@ -142,6 +147,8 @@ model Car {
   views     CarView[]
   favorites Favorite[]
   pricePoints PricePoint[]
+
+  @@index([featured, status])
 }
 
 // Evento de navegação para o motor de recomendações da homepage.
@@ -377,4 +384,29 @@ model Report {
   createdAt    DateTime @default(now())
 
   @@index([status, createdAt])
+}
+
+// Publicação gerada para o Instagram a partir de um anúncio (do site ou externo).
+// Serve de histórico: evita repetir o mesmo carro e guarda o id do post.
+model InstagramPost {
+  id        String  @id @default(cuid())
+  kind      String // car | listing
+  carId     String?
+  listingId String?
+
+  title    String // "Marca Modelo Versão" no momento da publicação
+  caption  String // legenda publicada (ou preparada)
+  imageUrl String? // PNG gerado, guardado no B2
+
+  // DOWNLOADED = descarregado à mão; PUBLISHED = publicado via Graph API
+  status     String    @default("DRAFT") // DRAFT | DOWNLOADED | PUBLISHED | FAILED
+  mediaId    String? // id do post no Instagram
+  permalink  String?
+  error      String? // mensagem de erro da última tentativa
+  createdAt  DateTime  @default(now())
+  publishedAt DateTime?
+
+  @@index([createdAt])
+  @@index([carId])
+  @@index([listingId])
 }
