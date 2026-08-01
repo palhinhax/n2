@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 
-export default function ExternalGallery({
+// Galeria com lightbox, usada tanto pelos anúncios do site como pelos externos.
+export default function PhotoGallery({
   photos,
   title,
 }: {

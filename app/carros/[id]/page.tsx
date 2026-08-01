@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import CarArt from "@/components/car-art";
+import PhotoGallery from "@/components/photo-gallery";
 import CarCard from "@/components/car-card";
 import { LuzzoAd } from "@/components/luzzo-ad";
 import OfferPanel from "@/components/offer-panel";
@@ -217,38 +218,24 @@ export default async function CarDetail({
         )}
         <div className="grid items-start gap-5 lg:grid-cols-[1.55fr_1fr]">
           <div>
-            <div className="n2-card relative overflow-hidden bg-gradient-to-b from-[#FCF4E2] to-[#F4E2BC]">
-              {car.photos[0] ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={car.photos[0].url}
-                  alt=""
-                  className="aspect-[16/10] w-full object-cover"
+            <div className="relative">
+              {car.photos.length > 0 ? (
+                // mesma galeria dos anúncios externos: clicar abre o lightbox
+                <PhotoGallery
+                  photos={car.photos.map((p) => p.url)}
+                  title={`${car.brand.name} ${car.model.name}`}
                 />
               ) : (
-                <div className="p-10">
+                <div className="n2-card overflow-hidden bg-gradient-to-b from-[#FCF4E2] to-[#F4E2BC] p-10">
                   <CarArt color={car.color} />
                 </div>
               )}
               {car.evRange ? (
-                <span className="n2-tag absolute left-3 top-3 bg-olive">
+                <span className="n2-tag pointer-events-none absolute left-3 top-3 z-10 bg-olive">
                   ⚡ {car.evRange} km autonomia
                 </span>
               ) : null}
             </div>
-            {car.photos.length > 1 && (
-              <div className="mt-2 grid grid-cols-6 gap-2">
-                {car.photos.slice(0, 6).map((p) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    key={p.id}
-                    src={p.url}
-                    alt=""
-                    className="aspect-[4/3] rounded-lg border border-outline object-cover"
-                  />
-                ))}
-              </div>
-            )}
             <section className="mt-7">
               <h2 className="mb-3 font-head text-[1.4rem] font-extrabold text-ink">
                 Características

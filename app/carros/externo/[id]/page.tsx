@@ -9,7 +9,7 @@ import SiteFooter from "@/components/site-footer";
 import { fmtEur } from "@/lib/constants";
 import { SOURCE_LABEL } from "@/components/external-car-card";
 import { MIN_LISTING_PRICE } from "@/lib/car-listing";
-import ExternalGallery from "@/components/external-gallery";
+import PhotoGallery from "@/components/photo-gallery";
 import FavoriteButton from "@/components/favorite-button";
 import TrackView from "@/components/track-view";
 import type { Metadata } from "next";
@@ -292,7 +292,7 @@ export default async function ExternalCarDetail({
 
         <div className="grid items-start gap-5 lg:grid-cols-[1.4fr_1fr]">
           <div className="flex flex-col gap-5">
-            <ExternalGallery photos={photos} title={listing.title} />
+            <PhotoGallery photos={photos} title={listing.title} />
 
             {cleanDescription && (
               <div className="n2-card p-5">

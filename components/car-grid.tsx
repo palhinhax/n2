@@ -79,12 +79,9 @@ export default function CarGrid({
       <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {items.map((it, idx) => (
           <Fragment key={`${it.kind}-${it.id}`}>
-            {idx === 2 && (
-              // o retângulo 300x250 ocupa uma célula da grelha, como um card
-              <div className="flex items-start justify-center">
-                <LuzzoAd variant="retangulo" />
-              </div>
-            )}
+            {/* ocupa uma célula da grelha, com a altura dos cards ao lado
+                (self-stretch, porque a grelha é items-start) */}
+            {idx === 2 && <LuzzoAd variant="retangulo" />}
             {it.kind === "car" ? (
               <CarCard car={it.data} />
             ) : (

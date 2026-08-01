@@ -27,9 +27,9 @@ export function LuzzoAd({
   variant?: keyof typeof SIZES;
 }) {
   const { src, width, height } = SIZES[variant];
-  // o retângulo enche a célula da grelha (é o "card" todo) mantendo a
-  // proporção; o embed é fluido, adapta-se ao tamanho do iframe. As barras
-  // são banners de altura fixa e só crescem em largura.
+  // o retângulo ocupa a célula da grelha por inteiro — mesma largura e mesma
+  // altura dos cards de carros ao lado. O embed é fluido, adapta-se ao
+  // tamanho do iframe. As barras são banners de altura fixa.
   const fills = variant === "retangulo";
 
   return (
@@ -46,7 +46,9 @@ export function LuzzoAd({
         width: "100%",
         marginInline: "auto",
         ...(fills
-          ? { aspectRatio: `${width} / ${height}`, maxWidth: 400 }
+          ? // minHeight para não colapsar fora de uma grelha, onde a célula
+            // não tem altura definida
+            { height: "100%", minHeight: height, alignSelf: "stretch" }
           : { height, maxWidth: width }),
       }}
     />
