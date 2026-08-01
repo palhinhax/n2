@@ -12,7 +12,7 @@ import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import CarCard from "@/components/car-card";
 import ExternalCarCard from "@/components/external-car-card";
-import AdSlot from "@/components/ad-slot";
+import { LuzzoAd } from "@/components/luzzo-ad";
 import BrandCombobox from "@/components/brand-combobox";
 import type { ListingItem } from "@/lib/car-listing";
 import JsonLd from "@/components/json-ld";
@@ -63,7 +63,7 @@ export default async function Home() {
     getRecommendations({
       visitorId,
       userId: session?.user?.id ?? null,
-      take: 7, // a grelha mostra 7 cards + 1 AdSlot
+      take: 7, // a grelha mostra 7 cards + 1 anúncio Luzzo
     }),
     fetchBrandOptions(),
     countAllForSale(),
@@ -176,7 +176,7 @@ export default async function Home() {
       </section>
 
       <div className="mx-auto mt-6 w-[min(1240px,94%)]">
-        <AdSlot variant="banner" />
+        <LuzzoAd variant="faixa" />
       </div>
 
       {/* destaques escolhidos à mão pela equipa (admin) */}
@@ -236,7 +236,7 @@ export default async function Home() {
             {reco.items.slice(0, 3).map((it) => (
               <ListingCard key={`${it.kind}-${it.id}`} item={it} />
             ))}
-            <AdSlot />
+            <LuzzoAd variant="barra" />
             {reco.items.slice(3, 7).map((it) => (
               <ListingCard key={`${it.kind}-${it.id}`} item={it} />
             ))}

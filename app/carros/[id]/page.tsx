@@ -6,7 +6,7 @@ import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import CarArt from "@/components/car-art";
 import CarCard from "@/components/car-card";
-import AdSlot from "@/components/ad-slot";
+import { LuzzoAd } from "@/components/luzzo-ad";
 import OfferPanel from "@/components/offer-panel";
 import FavoriteButton from "@/components/favorite-button";
 import TrackView from "@/components/track-view";
@@ -283,7 +283,7 @@ export default async function CarDetail({
               />
             </section>
             <section className="mt-7">
-              <AdSlot variant="banner" />
+              <LuzzoAd variant="faixa" />
             </section>
             <section className="mt-7">
               <div className="n2-card bg-[#FBF3DC] px-5 py-4">
@@ -371,7 +371,7 @@ export default async function CarDetail({
                 vehicleTitle={`${car.brand.name} ${car.model.name}`}
               />
             ) : null}
-            <AdSlot />
+            <LuzzoAd variant="barra" />
           </aside>
         </div>
         {similar.length > 0 && (

@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import CarCard from "@/components/car-card";
 import ExternalCarCard from "@/components/external-car-card";
-import AdSlot from "@/components/ad-slot";
+import { LuzzoAd } from "@/components/luzzo-ad";
 
 type Item = { kind: "car" | "ext"; id: string; data: any };
 
@@ -79,7 +79,7 @@ export default function CarGrid({
       <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {items.map((it, idx) => (
           <Fragment key={`${it.kind}-${it.id}`}>
-            {idx === 2 && <AdSlot />}
+            {idx === 2 && <LuzzoAd variant="barra" />}
             {it.kind === "car" ? (
               <CarCard car={it.data} />
             ) : (

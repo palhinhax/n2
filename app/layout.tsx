@@ -6,6 +6,7 @@ import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/ui/toaster";
 import PwaRegister from "@/components/pwa-register";
 import FloatingAssistant from "@/components/floating-assistant";
+import { LuzzoAd } from "@/components/luzzo-ad";
 import { SITE_URL, SITE_NAME, SITE_TAGLINE, SITE_DESCRIPTION } from "@/lib/seo";
 
 const geistSans = localFont({
@@ -82,6 +83,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Providers>
+          <LuzzoAd variant="barra" />
           {children}
           <Toaster />
           <FloatingAssistant />
