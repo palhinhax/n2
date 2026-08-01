@@ -236,7 +236,9 @@ export default async function Home() {
             {reco.items.slice(0, 3).map((it) => (
               <ListingCard key={`${it.kind}-${it.id}`} item={it} />
             ))}
-            <div className="flex justify-center">
+            {/* items-start: sem isto a grelha estica a célula e o iframe
+                enche a altura da linha, ignorando o rácio do anúncio */}
+            <div className="flex items-start justify-center">
               <LuzzoAd variant="retangulo" />
             </div>
             {reco.items.slice(3, 7).map((it) => (

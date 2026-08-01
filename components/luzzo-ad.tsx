@@ -27,6 +27,10 @@ export function LuzzoAd({
   variant?: keyof typeof SIZES;
 }) {
   const { src, width, height } = SIZES[variant];
+  // o retângulo enche a célula da grelha (é o "card" todo) mantendo a
+  // proporção; o embed é fluido, adapta-se ao tamanho do iframe. As barras
+  // são banners de altura fixa e só crescem em largura.
+  const fills = variant === "retangulo";
 
   return (
     <iframe
@@ -38,12 +42,12 @@ export function LuzzoAd({
         border: 0,
         borderRadius: 14,
         overflow: "hidden",
-        // o criativo tem tamanho fixo; nunca esticamos para além dele
-        width: "100%",
-        maxWidth: width,
-        height,
         display: "block",
+        width: "100%",
         marginInline: "auto",
+        ...(fills
+          ? { aspectRatio: `${width} / ${height}`, maxWidth: 400 }
+          : { height, maxWidth: width }),
       }}
     />
   );

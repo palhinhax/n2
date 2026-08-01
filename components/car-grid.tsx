@@ -81,7 +81,7 @@ export default function CarGrid({
           <Fragment key={`${it.kind}-${it.id}`}>
             {idx === 2 && (
               // o retângulo 300x250 ocupa uma célula da grelha, como um card
-              <div className="flex justify-center">
+              <div className="flex items-start justify-center">
                 <LuzzoAd variant="retangulo" />
               </div>
             )}
