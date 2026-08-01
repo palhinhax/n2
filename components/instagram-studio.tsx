@@ -141,7 +141,8 @@ export default function InstagramStudio({
     setBusy("publish");
     setMsg(null);
     try {
-      const image = canvasRef.current.toDataURL("image/png");
+      // JPEG e não PNG: o content publishing do Instagram só aceita JPEG
+      const image = canvasRef.current.toDataURL("image/jpeg", 0.92);
       const res = await fetch("/api/admin/instagram/publish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

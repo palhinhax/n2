@@ -94,22 +94,23 @@ export async function POST(req: Request) {
     );
   }
 
+  // o content publishing do Instagram só aceita JPEG — o painel envia JPEG
   const image = typeof b.image === "string" ? b.image : "";
-  if (!image.startsWith("data:image/png;base64,")) {
+  if (!image.startsWith("data:image/jpeg;base64,")) {
     return NextResponse.json(
-      { error: "Imagem em falta ou em formato inesperado." },
+      { error: "Imagem em falta ou em formato inesperado (esperado JPEG)." },
       { status: 400 }
     );
   }
 
   let imageUrl: string | null = null;
   try {
-    const png = Buffer.from(image.split(",", 2)[1], "base64");
-    if (!png.length || png.length > MAX_IMAGE_BYTES) {
+    const jpeg = Buffer.from(image.split(",", 2)[1], "base64");
+    if (!jpeg.length || jpeg.length > MAX_IMAGE_BYTES) {
       return NextResponse.json({ error: "Imagem inválida." }, { status: 400 });
     }
-    const key = `instagram/${kind}-${s.id}-${Date.now()}.png`;
-    ({ publicUrl: imageUrl } = await uploadObject(key, png, "image/png"));
+    const key = `instagram/${kind}-${s.id}-${Date.now()}.jpg`;
+    ({ publicUrl: imageUrl } = await uploadObject(key, jpeg, "image/jpeg"));
   } catch (err) {
     console.error("[instagram/publish] imagem", err);
     return NextResponse.json(
