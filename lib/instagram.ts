@@ -23,11 +23,25 @@ const igToken = () => env("IG_ACCESS_TOKEN");
  *
  * Escolhemos pelo prefixo do token; IG_GRAPH_HOST força um deles se preciso.
  */
-function graphBase() {
-  const host =
+function graphHost() {
+  return (
     env("IG_GRAPH_HOST") ||
-    (igToken().startsWith("IG") ? "graph.instagram.com" : "graph.facebook.com");
-  return `https://${host}/${env("IG_GRAPH_VERSION") || "v21.0"}`;
+    (igToken().startsWith("IG") ? "graph.instagram.com" : "graph.facebook.com")
+  );
+}
+
+function graphBase() {
+  return `https://${graphHost()}/${env("IG_GRAPH_VERSION") || "v21.0"}`;
+}
+
+/**
+ * Nó da conta onde se publica. No Instagram Login o token já identifica a
+ * conta e o id certo é o "app-scoped" (que não é o mesmo que o IG Business
+ * Account ID) — usar `me` evita ter de descobrir qual é. No Facebook Login é
+ * mesmo preciso o IG Business Account ID em IG_USER_ID.
+ */
+function igNode() {
+  return graphHost() === "graph.instagram.com" ? "me" : env("IG_USER_ID");
 }
 
 export type IgKind = "car" | "listing";
@@ -56,7 +70,9 @@ export interface IgSubject {
 }
 
 export function instagramConfigured() {
-  return !!(env("IG_USER_ID") && igToken());
+  if (!igToken()) return false;
+  // o Facebook Login precisa do id da conta; o Instagram Login não
+  return graphHost() === "graph.instagram.com" || !!env("IG_USER_ID");
 }
 
 function firstImage(imageUrls: string): string | null {
@@ -242,7 +258,7 @@ async function graphGet(path: string, fields: string) {
  * for. Devolve o username para o painel mostrar em que conta vai publicar.
  */
 export async function checkInstagramAccount() {
-  const json = await graphGet(env("IG_USER_ID"), "id,username");
+  const json = await graphGet(igNode(), "id,username");
   return {
     id: json.id as string,
     username: (json.username ?? null) as string | null,
@@ -260,7 +276,7 @@ export async function publishToInstagram(imageUrl: string, caption: string) {
       "Instagram não configurado (falta IG_USER_ID / IG_ACCESS_TOKEN)."
     );
   }
-  const igUser = env("IG_USER_ID");
+  const igUser = igNode();
 
   // 1) contentor de media
   const container = await graphPost(`${igUser}/media`, {
