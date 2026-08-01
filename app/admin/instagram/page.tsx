@@ -8,6 +8,7 @@ import InstagramStudio from "@/components/instagram-studio";
 import {
   loadSubject,
   buildCaption,
+  canvasFields,
   instagramConfigured,
   type IgKind,
 } from "@/lib/instagram";
@@ -123,10 +124,12 @@ export default async function InstagramAdmin({
             kind={kind}
             id={id}
             title={subject.title}
+            fields={canvasFields(subject)}
             defaultCaption={buildCaption(subject)}
             defaultBadge={
               subject.source ? `via ${subject.source}` : "No Nacional 2"
             }
+            hasPhoto={!!subject.photoUrl}
             apiEnabled={instagramConfigured()}
           />
         ) : null}

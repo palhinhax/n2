@@ -9,16 +9,19 @@ import {
   IG_CAPTION_MAX,
   type IgKind,
 } from "@/lib/instagram";
-import { renderInstagramImage } from "@/lib/instagram-image";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+// o PNG 1080x1350 vem do canvas do painel em base64; 12 MB é folgado
+const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
+
 /**
  * mode "manual" — o admin descarregou o PNG e publica à mão: só regista.
- * mode "api"    — gera o PNG, carrega-o para o B2 (o Instagram precisa de um
- *                 URL público) e publica via Graph API.
+ * mode "api"    — recebe o PNG desenhado no painel, carrega-o para o B2 (o
+ *                 Instagram vai buscar a imagem a um URL público) e publica
+ *                 via Graph API.
  */
 export async function POST(req: Request) {
   const session = await auth();
@@ -91,10 +94,20 @@ export async function POST(req: Request) {
     );
   }
 
+  const image = typeof b.image === "string" ? b.image : "";
+  if (!image.startsWith("data:image/png;base64,")) {
+    return NextResponse.json(
+      { error: "Imagem em falta ou em formato inesperado." },
+      { status: 400 }
+    );
+  }
+
   let imageUrl: string | null = null;
   try {
-    const res = await renderInstagramImage(s, { badge: b.badge ?? null });
-    const png = Buffer.from(await res.arrayBuffer());
+    const png = Buffer.from(image.split(",", 2)[1], "base64");
+    if (!png.length || png.length > MAX_IMAGE_BYTES) {
+      return NextResponse.json({ error: "Imagem inválida." }, { status: 400 });
+    }
     const key = `instagram/${kind}-${s.id}-${Date.now()}.png`;
     ({ publicUrl: imageUrl } = await uploadObject(key, png, "image/png"));
   } catch (err) {

@@ -182,11 +182,11 @@ export async function drawInstagramPost(
     g.addColorStop(1, C.stone2);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, IG_W, PHOTO_H);
-    ctx.fillStyle = C.bark;
-    ctx.font = head(64, 800);
+    // sem foto: só um símbolo — o título já aparece no painel de baixo
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(d.headline, IG_W / 2, PHOTO_H / 2);
+    ctx.font = "200px sans-serif";
+    ctx.fillText("🚗", IG_W / 2, PHOTO_H / 2);
     ctx.textAlign = "left";
   }
   ctx.restore();

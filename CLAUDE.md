@@ -41,6 +41,7 @@ pnpm quality:flag                    # flag suspicious listings
 After any Prisma schema change, run `pnpm db:push` (dev) or `pnpm db:migrate` (tracked migration) and restart the dev server.
 
 Run a single test file:
+
 ```bash
 pnpm test -- tests/unit/post-form.test.tsx
 ```
@@ -57,6 +58,7 @@ The most important architectural concept: every listing page merges **two data s
 - `ScrapedListing` — external listings scraped from OLX/Standvirtual/Piscapisca/AutoSapo, must be `active: true`, `isDuplicate: false`, `suspicious: false`.
 
 `lib/car-listing.ts` is the single source of truth for building this merged feed:
+
 - `fetchListingPage()` queries both tables in parallel, merges/sorts client-side, and returns a paginated `ListingPage`.
 - `buildWheres()` translates the `ListingQuery` URL params into Prisma `where` clauses for both sources, handling fuel type normalization (many spelling variations across sites) and brand aliases (VW ↔ Volkswagen).
 - `fetchBrandOptions()` builds the filter dropdowns from both sources combined.
@@ -66,6 +68,7 @@ The `/api/carros` route uses this for infinite scroll (24 items per page).
 ### Polymorphic Models
 
 Several models are intentionally polymorphic (nullable FK to either `Car` or `ScrapedListing`):
+
 - `Favorite` — a user can heart either a native car or an external listing.
 - `PricePoint` — price history for both source types.
 
@@ -108,10 +111,27 @@ Browser → POST `/api/upload` → server uploads to Backblaze B2 via `@aws-sdk/
 ### Alert System
 
 Daily cron at 07:30 (`/api/cron/alerts`) checks each user's favorites and saved searches:
+
 - Favorites: if price dropped below `Favorite.notifiedPrice`, creates a `Notification` (in-app, kind `PRICE_DROP`) and optionally emails via Resend.
 - Saved searches: if `countListings()` returns more than `SavedSearch.notifiedCount`, creates a `NEW_MATCHES` notification.
 
 Notifications appear in the `/notificacoes` page and as a badge on the navbar bell icon.
+
+### Featured Listings (Destaques)
+
+Editorial, admin-only — there is no paid featuring. `Car.featured` + `Car.featuredAt` are toggled from `/admin` (`components/feature-toggle.tsx` → `PATCH /api/admin/cars/[id]`). Only `APPROVED` + `forSale` cars can be featured; rejecting a car clears the flag.
+
+`fetchListingPage()` queries featured cars in a **separate** query (not limited by the page `take`) and `unshift`s them onto the merged list, so they lead every listing regardless of sort order or filters, and pagination stays stable. `fetchFeaturedCars()` feeds the homepage section. `MAX_FEATURED` (12) caps how many surface at once. Scraped listings cannot be featured.
+
+### Instagram Post Generator
+
+`/admin/instagram` turns any listing (native or scraped) into a 1080×1350 post: image + caption, either downloaded for manual posting or published via the Graph API.
+
+The image is drawn **in the browser** on a `<canvas>` (`lib/instagram-canvas.ts`), not server-side. This is deliberate: `next/og` crashes on Windows dev (`fileURLToPath` on a `path.join`ed `file://` URL when loading its bundled font), and satori cannot decode the WebP that the portals' CDNs serve. The browser handles both, uses the site's real Barlow fonts, and the preview _is_ the exported file.
+
+Photos load through `GET /api/admin/instagram/photo?kind=&id=` — a same-origin proxy so the canvas isn't tainted and CDN hotlink blocks are bypassed. The URL is always read from the listing record, never taken from the client, so it is not an open proxy.
+
+Captions come from `buildCaption()` (deterministic) or `POST /api/admin/instagram/caption` (OpenAI, falls back to the deterministic one). `POST /api/admin/instagram/publish` takes `mode: "manual"` (just logs an `InstagramPost` row) or `mode: "api"` (receives the PNG as a base64 data URL, uploads it to B2 for a public URL, then runs the Graph API create-container → poll → publish flow). API publishing needs `IG_USER_ID` + `IG_ACCESS_TOKEN` **and** B2 configured; without them the button is disabled and only manual download works.
 
 ### Suspicious Listing Detection
 
@@ -125,20 +145,22 @@ Notifications appear in the `/notificacoes` page and as a badge on the navbar be
 
 ## Key `lib/` Modules
 
-| Module | Purpose |
-|--------|---------|
-| `car-listing.ts` | Merged listing feed, filters, brand options |
-| `price-intel.ts` | Market price stats and rating |
-| `assistant.ts` | AI system prompts and OpenAI tool definitions |
-| `ai-limit.ts` | Daily AI quota enforcement |
-| `listing-quality.ts` | Suspicious listing detection |
-| `search.ts` | Fuzzy brand/model search (bigram similarity) |
-| `b2.ts` | Backblaze B2 image upload |
-| `favorites.ts` | Polymorphic favorite logic |
-| `notifications.ts` | In-app notification creation |
-| `vehicle-normalize.ts` | Brand/model normalization for scraper |
-| `seo.ts` | Canonical URLs, metadata helpers |
-| `constants.ts` | Shared enums (fuels, districts, reminder types, etc.) |
+| Module                 | Purpose                                                |
+| ---------------------- | ------------------------------------------------------ |
+| `car-listing.ts`       | Merged listing feed, filters, brand options, destaques |
+| `instagram.ts`         | Post subject loading, captions, Graph API publishing   |
+| `instagram-canvas.ts`  | Client-side 1080×1350 post rendering                   |
+| `price-intel.ts`       | Market price stats and rating                          |
+| `assistant.ts`         | AI system prompts and OpenAI tool definitions          |
+| `ai-limit.ts`          | Daily AI quota enforcement                             |
+| `listing-quality.ts`   | Suspicious listing detection                           |
+| `search.ts`            | Fuzzy brand/model search (bigram similarity)           |
+| `b2.ts`                | Backblaze B2 image upload                              |
+| `favorites.ts`         | Polymorphic favorite logic                             |
+| `notifications.ts`     | In-app notification creation                           |
+| `vehicle-normalize.ts` | Brand/model normalization for scraper                  |
+| `seo.ts`               | Canonical URLs, metadata helpers                       |
+| `constants.ts`         | Shared enums (fuels, districts, reminder types, etc.)  |
 
 ---
 
