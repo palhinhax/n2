@@ -3,14 +3,32 @@
 // Funciona em dois modos:
 //  - manual: o admin gera a imagem (PNG 1080x1350) + legenda e descarrega para
 //    publicar à mão. Não precisa de nenhuma configuração.
-//  - API: publica direto no Instagram via Graph API. Requer uma conta
-//    Instagram Business/Creator ligada a uma Página de Facebook e as env vars
+//  - API: publica direto no Instagram via Graph API, com as env vars
 //    IG_USER_ID + IG_ACCESS_TOKEN (token de longa duração).
 import { prisma } from "@/lib/prisma";
 import { fmtEur } from "@/lib/constants";
 import { SITE_URL } from "@/lib/seo";
 
-const GRAPH = `https://graph.facebook.com/${process.env.IG_GRAPH_VERSION || "v21.0"}`;
+const env = (k: string) => (process.env[k] ?? "").trim();
+const igToken = () => env("IG_ACCESS_TOKEN");
+
+/**
+ * Há duas APIs da Meta para publicar no Instagram. Os endpoints e parâmetros
+ * são iguais, mas o host não — e mandar o token para o host errado dá o
+ * enigmático "Cannot parse access token":
+ *
+ *  - Facebook Login for Business → token "EAA…"  → graph.facebook.com
+ *    (conta Instagram ligada a uma Página de Facebook)
+ *  - Instagram Login             → token "IGAA…" → graph.instagram.com
+ *
+ * Escolhemos pelo prefixo do token; IG_GRAPH_HOST força um deles se preciso.
+ */
+function graphBase() {
+  const host =
+    env("IG_GRAPH_HOST") ||
+    (igToken().startsWith("IG") ? "graph.instagram.com" : "graph.facebook.com");
+  return `https://${host}/${env("IG_GRAPH_VERSION") || "v21.0"}`;
+}
 
 export type IgKind = "car" | "listing";
 
@@ -38,7 +56,7 @@ export interface IgSubject {
 }
 
 export function instagramConfigured() {
-  return !!(process.env.IG_USER_ID && process.env.IG_ACCESS_TOKEN);
+  return !!(env("IG_USER_ID") && igToken());
 }
 
 function firstImage(imageUrls: string): string | null {
@@ -197,28 +215,38 @@ export const IG_CAPTION_MAX = 2200;
 // Publicação via Graph API
 // ---------------------------------------------------------------------------
 
-async function graph(path: string, params: Record<string, string>) {
-  const body = new URLSearchParams({
-    ...params,
-    access_token: process.env.IG_ACCESS_TOKEN!,
-  });
-  const res = await fetch(`${GRAPH}/${path}`, { method: "POST", body });
+async function graphPost(path: string, params: Record<string, string>) {
+  const body = new URLSearchParams({ ...params, access_token: igToken() });
+  const res = await fetch(`${graphBase()}/${path}`, { method: "POST", body });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(
-      json?.error?.message || `Instagram Graph API ${res.status}`
-    );
+    throw new Error(json?.error?.message || `Instagram API ${res.status}`);
   }
   return json;
 }
 
-async function containerStatus(creationId: string): Promise<string> {
-  const url = `${GRAPH}/${creationId}?fields=status_code&access_token=${encodeURIComponent(
-    process.env.IG_ACCESS_TOKEN!
-  )}`;
+async function graphGet(path: string, fields: string) {
+  const url = `${graphBase()}/${path}?fields=${encodeURIComponent(
+    fields
+  )}&access_token=${encodeURIComponent(igToken())}`;
   const res = await fetch(url);
   const json = await res.json().catch(() => ({}));
-  return json?.status_code || "ERROR";
+  if (!res.ok) {
+    throw new Error(json?.error?.message || `Instagram API ${res.status}`);
+  }
+  return json;
+}
+
+/**
+ * Confirma que o token e a conta respondem, antes de gerar/carregar seja o que
+ * for. Devolve o username para o painel mostrar em que conta vai publicar.
+ */
+export async function checkInstagramAccount() {
+  const json = await graphGet(env("IG_USER_ID"), "id,username");
+  return {
+    id: json.id as string,
+    username: (json.username ?? null) as string | null,
+  };
 }
 
 /**
@@ -232,10 +260,10 @@ export async function publishToInstagram(imageUrl: string, caption: string) {
       "Instagram não configurado (falta IG_USER_ID / IG_ACCESS_TOKEN)."
     );
   }
-  const igUser = process.env.IG_USER_ID!;
+  const igUser = env("IG_USER_ID");
 
   // 1) contentor de media
-  const container = await graph(`${igUser}/media`, {
+  const container = await graphPost(`${igUser}/media`, {
     image_url: imageUrl,
     caption: caption.slice(0, IG_CAPTION_MAX),
   });
@@ -243,16 +271,18 @@ export async function publishToInstagram(imageUrl: string, caption: string) {
 
   // 2) esperar que o Instagram descarregue e processe a imagem
   for (let i = 0; i < 12; i++) {
-    const status = await containerStatus(creationId);
-    if (status === "FINISHED") break;
-    if (status === "ERROR" || status === "EXPIRED") {
-      throw new Error(`O Instagram rejeitou a imagem (${status}).`);
+    const { status_code } = await graphGet(creationId, "status_code").catch(
+      () => ({ status_code: "ERROR" })
+    );
+    if (status_code === "FINISHED") break;
+    if (status_code === "ERROR" || status_code === "EXPIRED") {
+      throw new Error(`O Instagram rejeitou a imagem (${status_code}).`);
     }
     await new Promise((r) => setTimeout(r, 2000));
   }
 
   // 3) publicar
-  const published = await graph(`${igUser}/media_publish`, {
+  const published = await graphPost(`${igUser}/media_publish`, {
     creation_id: creationId,
   });
   const mediaId: string = published.id;
@@ -260,13 +290,7 @@ export async function publishToInstagram(imageUrl: string, caption: string) {
   // 4) permalink (best-effort — a publicação já foi feita)
   let permalink: string | null = null;
   try {
-    const res = await fetch(
-      `${GRAPH}/${mediaId}?fields=permalink&access_token=${encodeURIComponent(
-        process.env.IG_ACCESS_TOKEN!
-      )}`
-    );
-    const json = await res.json();
-    permalink = json?.permalink ?? null;
+    permalink = (await graphGet(mediaId, "permalink"))?.permalink ?? null;
   } catch {
     permalink = null;
   }
