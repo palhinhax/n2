@@ -82,17 +82,24 @@ export async function upsertListing(
     data.isDuplicate = !!primaryDuplicate;
   }
 
+  const existingSelect = {
+    id: true,
+    price: true,
+    description: true,
+    origin: true,
+    hiddenByAdmin: true,
+  } as const;
   let existing = await prisma.scrapedListing.findUnique({
     where: {
       source_externalId: { source: l.source, externalId: l.externalId },
     },
-    select: { id: true, price: true, description: true, origin: true },
+    select: existingSelect,
   });
 
   if (!existing) {
     existing = await prisma.scrapedListing.findFirst({
       where: { url: l.url },
-      select: { id: true, price: true, description: true, origin: true },
+      select: existingSelect,
     });
     if (existing && origin === "scraper") {
       data.source = l.source;
@@ -106,6 +113,9 @@ export async function upsertListing(
   }
 
   if (existing) {
+    // apagado por um admin — atualizamos os dados mas fica fora do site
+    if (existing.hiddenByAdmin) data.active = false;
+
     if (l.description != null && !existing.description) {
       data.description = l.description;
     }

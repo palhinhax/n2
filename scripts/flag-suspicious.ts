@@ -30,6 +30,7 @@ async function main() {
       select: {
         id: true,
         title: true,
+        rawTitle: true,
         km: true,
         year: true,
         price: true,
@@ -42,7 +43,8 @@ async function main() {
     scanned += rows.length;
 
     for (const r of rows) {
-      const q = assessListingQuality(r);
+      const sourceTitle = r.rawTitle || r.title;
+      const q = assessListingQuality({ ...r, title: sourceTitle });
       const reasonsJson = JSON.stringify(q.reasons);
       if (r.suspicious === q.suspicious && r.suspiciousReasons === reasonsJson)
         continue;
@@ -50,7 +52,7 @@ async function main() {
         flagged++;
         if (samples.length < 25)
           samples.push(
-            `  "${r.title}" — km=${r.km ?? "?"} ano=${r.year ?? "?"} preço=${r.price ?? "?"} → ${q.reasons.join(", ")}`
+            `  "${sourceTitle}" — km=${r.km ?? "?"} ano=${r.year ?? "?"} preço=${r.price ?? "?"} → ${q.reasons.join(", ")}`
           );
       } else {
         unflagged++;

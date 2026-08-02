@@ -1,0 +1,2 @@
+ALTER TABLE "ScrapedListing"
+ADD COLUMN IF NOT EXISTS "hiddenByAdmin" BOOLEAN NOT NULL DEFAULT false;

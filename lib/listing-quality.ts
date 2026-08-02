@@ -14,6 +14,7 @@ export const SUSPICION_REASONS = {
   year: "ano_implausivel",
   price: "preco_implausivel",
   parts: "possivel_pecas",
+  nonVehicle: "nao_veiculo",
 } as const;
 
 export type SuspicionReason =
@@ -24,6 +25,7 @@ export const REASON_LABEL: Record<SuspicionReason, string> = {
   ano_implausivel: "Ano por confirmar",
   preco_implausivel: "Preço por confirmar",
   possivel_pecas: "Possível anúncio de peças",
+  nao_veiculo: "Anúncio não automóvel",
 };
 
 // Limites (ver feedback SEO):
@@ -45,6 +47,11 @@ export interface QualityInput {
 // título sem acentos/minúsculas; conservador de propósito (título, não descrição).
 const PARTS_TITLE_RE =
   /\b(?:para|so|p) ?pecas?\b|\bsalvado\b|\bdesmontagem\b|^\s*(?:carrocaria|carroceria)\b/;
+
+// Mobília e outros artigos não automóveis que por vezes aparecem nos feeds
+// classificados por causa de categorias erradas na origem.
+const NON_VEHICLE_TITLE_RE =
+  /\bikea\b|\b(?:cama|camas|colchao|colchoes|roupeiro|armario|sofa|estante|movel|moveis|mobilia|mobiliario)\b/;
 
 const normForMatch = (s: string) =>
   s
@@ -79,6 +86,9 @@ export function assessListingQuality(l: QualityInput): QualityResult {
 
   if (l.title && PARTS_TITLE_RE.test(normForMatch(l.title)))
     reasons.push(SUSPICION_REASONS.parts);
+
+  if (l.title && NON_VEHICLE_TITLE_RE.test(normForMatch(l.title)))
+    reasons.push(SUSPICION_REASONS.nonVehicle);
 
   return { suspicious: reasons.length > 0, reasons };
 }

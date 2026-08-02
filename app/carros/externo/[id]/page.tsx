@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { ensureListingDetail } from "@/lib/scraped-detail";
 import RefreshDetailsButton from "@/components/refresh-details-button";
+import AdminHideListingButton from "@/components/admin-hide-listing-button";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import { fmtEur } from "@/lib/constants";
@@ -16,7 +17,11 @@ import type { Metadata } from "next";
 import JsonLd from "@/components/json-ld";
 import { absolute, clamp, eur, SITE_NAME } from "@/lib/seo";
 import PriceBadge from "@/components/price-badge";
-import { parseSuspiciousReasons, REASON_LABEL } from "@/lib/listing-quality";
+import {
+  parseSuspiciousReasons,
+  REASON_LABEL,
+  SUSPICION_REASONS,
+} from "@/lib/listing-quality";
 import { marketStats, ratePrice } from "@/lib/price-intel";
 import FinanceSimulator from "@/components/finance-simulator";
 import ReportButton from "@/components/report-button";
@@ -39,7 +44,13 @@ export async function generateMetadata({
   const l = await prisma.scrapedListing.findUnique({
     where: { id: params.id },
   });
-  if (!l || !l.active || (l.price != null && l.price < MIN_LISTING_PRICE))
+  const reasons = parseSuspiciousReasons(l?.suspiciousReasons);
+  if (
+    !l ||
+    !l.active ||
+    (l.price != null && l.price < MIN_LISTING_PRICE) ||
+    reasons.includes(SUSPICION_REASONS.nonVehicle)
+  )
     return { title: "Anúncio", robots: { index: false } };
   const title = `${l.title}${l.year ? ` (${l.year})` : ""} — ${eur(l.price)}`;
   // dados implausíveis (km/ano/preço) — página visível mas fora do índice
@@ -87,6 +98,12 @@ export default async function ExternalCarDetail({
 
   const session = await auth();
   const isAdmin = (session?.user as any)?.role === "ADMIN";
+  const suspiciousReasons = parseSuspiciousReasons(listing.suspiciousReasons);
+  const isNonVehicle = suspiciousReasons.includes(SUSPICION_REASONS.nonVehicle);
+
+  // apagado por um admin — só admins conseguem ver (para poder repor)
+  if (listing.hiddenByAdmin && !isAdmin) notFound();
+  if (isNonVehicle && !isAdmin) notFound();
 
   // Anúncios que desapareceram da origem ficam na BD para sempre (histórico de
   // preços, índice de mercado), mas a página pública "põe-se do sol" ao fim de
@@ -322,7 +339,15 @@ export default async function ExternalCarDetail({
           › <b className="text-ink">{listing.title}</b>
         </div>
 
-        {!listing.active && (
+        {listing.hiddenByAdmin && (
+          <div className="n2-card mb-4 border-l-4 border-[#C6603B] p-4 text-[0.9rem] font-medium text-ink">
+            <b>Apagado por um administrador.</b> Este anúncio não aparece no
+            site nem volta a ser reposto pelo scraper. Só admins veem esta
+            página.
+          </div>
+        )}
+
+        {!listing.active && !listing.hiddenByAdmin && (
           <div className="n2-card mb-4 border-l-4 border-clay p-4 text-[0.9rem] font-medium text-ink">
             Este anúncio já não aparece no site de origem — pode ter sido
             vendido ou removido.
@@ -334,9 +359,7 @@ export default async function ExternalCarDetail({
             <b>Dados por confirmar.</b> Alguns valores deste anúncio parecem
             implausíveis e podem ser erro do site de origem:
             <span className="ml-1 font-semibold">
-              {parseSuspiciousReasons(listing.suspiciousReasons)
-                .map((r) => REASON_LABEL[r])
-                .join(" · ")}
+              {suspiciousReasons.map((r) => REASON_LABEL[r]).join(" · ")}
             </span>
             . Confirma sempre no anúncio original antes de decidir. Por isso,
             este anúncio não entra nas listagens nem na comparação de preços.
@@ -462,7 +485,15 @@ export default async function ExternalCarDetail({
                   />
                 </div>
               </div>
-              {isAdmin && <RefreshDetailsButton id={listing.id} />}
+              {isAdmin && (
+                <>
+                  <RefreshDetailsButton id={listing.id} />
+                  <AdminHideListingButton
+                    id={listing.id}
+                    hidden={listing.hiddenByAdmin}
+                  />
+                </>
+              )}
             </div>
 
             {sameCar.length > 0 && (

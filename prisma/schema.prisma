@@ -279,6 +279,9 @@ model ScrapedListing {
   suspicious        Boolean @default(false)
   suspiciousReasons String  @default("[]") // JSON: ["km_implausivel", ...]
 
+  // removido manualmente por um admin — o scraper nunca o reativa
+  hiddenByAdmin Boolean @default(false)
+
   // histórico de preço (descida) — preenchido quando o scraper deteta mudança
   previousPrice  Int?
   priceChangedAt DateTime?
