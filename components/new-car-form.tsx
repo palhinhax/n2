@@ -23,7 +23,9 @@ export default function NewCarForm() {
     forSale: false,
     price: "",
     negotiable: true,
-    showPhone: false,
+    // ligado por defeito: um comprador que não pode ligar dificilmente marca
+    // visita — o vendedor pode desligar (a checkbox é o consentimento RGPD)
+    showPhone: true,
   });
   const [photos, setPhotos] = useState<any[]>([]);
   const [error, setError] = useState("");
