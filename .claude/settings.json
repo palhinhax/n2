@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(node \"C:\\\\Users\\\\jduarte\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-jduarte-Documents-workSpace-n2\\\\64da590d-44f5-4e0c-9181-de2b79389d89\\\\scratchpad\\\\lookup-listing.cjs\")",
+      "WebFetch(domain:www.nacional-2.pt)",
+      "PowerShell(pnpm test -- tests/unit/listing-quality.test.ts)",
+      "PowerShell(npx tsx scripts/flag-suspicious.ts --dry-run)",
+      "PowerShell(node \"C:\\\\Users\\\\jduarte\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-jduarte-Documents-workSpace-n2\\\\64da590d-44f5-4e0c-9181-de2b79389d89\\\\scratchpad\\\\count-empty-enriched.cjs\")",
+      "PowerShell(npx tsx scripts/flag-suspicious.ts --dry-run 2>&1)"
+    ]
+  }
+}

@@ -1,4 +1,8 @@
-import { assessListingQuality, SUSPICION_REASONS } from "@/lib/listing-quality";
+import {
+  assessListingQuality,
+  matchSuspiciousKeywords,
+  SUSPICION_REASONS,
+} from "@/lib/listing-quality";
 
 describe("assessListingQuality", () => {
   it("marks IKEA beds and furniture listings as non-vehicle listings", () => {
@@ -122,5 +126,77 @@ describe("assessListingQuality", () => {
         displacement: null,
       }).reasons
     ).not.toContain(SUSPICION_REASONS.nonVehicle);
+  });
+});
+
+describe("suspicious keywords (admin list)", () => {
+  const keywords = ["mota", "cama articulada", "brinquedo"];
+
+  it("flags a keyword match in the title even with mechanical data", () => {
+    // uma mota tem km/ano/combustível — o gate looksLikeCar não a protege
+    expect(
+      assessListingQuality({
+        title: "Mota Honda CBR 600",
+        price: 4500,
+        km: 30000,
+        year: 2018,
+        fuel: "Gasolina",
+        suspiciousKeywords: keywords,
+      }).reasons
+    ).toContain(SUSPICION_REASONS.keyword);
+  });
+
+  it("flags a keyword match in the description", () => {
+    expect(
+      assessListingQuality({
+        title: "Artigo em bom estado",
+        price: 900,
+        description: "Vendo brinquedo elétrico para crianças até 8 anos.",
+        suspiciousKeywords: keywords,
+      }).reasons
+    ).toContain(SUSPICION_REASONS.keyword);
+  });
+
+  it("matches accent-insensitively and as whole words only", () => {
+    expect(matchSuspiciousKeywords(["movel"], "Móvel de sala IKEA")).toEqual([
+      "movel",
+    ]);
+    // "camada" não contém a palavra inteira "cama"
+    expect(matchSuspiciousKeywords(["cama"], "Pintura com nova camada")).toEqual(
+      []
+    );
+  });
+
+  it("supports multi-word phrases", () => {
+    expect(
+      matchSuspiciousKeywords(
+        ["cama articulada"],
+        null,
+        "Vendo cama  articulada elétrica"
+      )
+    ).toEqual(["cama articulada"]);
+  });
+
+  it("does not flag when no keyword matches", () => {
+    expect(
+      assessListingQuality({
+        title: "Renault Clio 1.5 dCi",
+        price: 7500,
+        km: 120000,
+        year: 2016,
+        description: "Carro impecável, sempre na garagem.",
+        suspiciousKeywords: keywords,
+      }).reasons
+    ).not.toContain(SUSPICION_REASONS.keyword);
+  });
+
+  it("does not flag when the keyword list is empty", () => {
+    expect(
+      assessListingQuality({
+        title: "Mota Honda CBR 600",
+        price: 4500,
+        suspiciousKeywords: [],
+      }).reasons
+    ).not.toContain(SUSPICION_REASONS.keyword);
   });
 });

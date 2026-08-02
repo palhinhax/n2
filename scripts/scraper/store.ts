@@ -4,6 +4,7 @@ import { ensureBrandModel } from "./brands";
 import { dedupeKeyFor } from "./dedupe";
 import { normalizeVehicle } from "../../lib/vehicle-normalize";
 import { assessListingQuality } from "../../lib/listing-quality";
+import { getSuspiciousKeywords } from "../../lib/suspicious-keywords";
 import { isBackupListingSource, primarySourceForBackup } from "./types";
 
 export async function upsertListing(
@@ -50,20 +51,6 @@ export async function upsertListing(
     lastSeenAt: now,
   };
 
-  const quality = assessListingQuality({
-    km: l.km ?? null,
-    year: l.year ?? null,
-    price: l.price ?? null,
-    title: l.title,
-    brand: nv.brand ?? l.brand ?? null,
-    fuel: l.fuel ?? null,
-    gearbox: l.gearbox ?? null,
-    power: l.power ?? null,
-    displacement: l.displacement ?? null,
-  });
-  data.suspicious = quality.suspicious;
-  data.suspiciousReasons = JSON.stringify(quality.reasons);
-
   const backupPrimary = primarySourceForBackup(l.source);
   if (backupPrimary) {
     const primaryDuplicate = await prisma.scrapedListing.findFirst({
@@ -93,6 +80,7 @@ export async function upsertListing(
     description: true,
     origin: true,
     hiddenByAdmin: true,
+    keywordExempt: true,
   } as const;
   let existing = await prisma.scrapedListing.findUnique({
     where: {
@@ -116,6 +104,24 @@ export async function upsertListing(
   if (existing && origin === "api" && existing.origin === "scraper") {
     return "updated";
   }
+
+  const quality = assessListingQuality({
+    km: l.km ?? null,
+    year: l.year ?? null,
+    price: l.price ?? null,
+    title: l.title,
+    brand: nv.brand ?? l.brand ?? null,
+    fuel: l.fuel ?? null,
+    gearbox: l.gearbox ?? null,
+    power: l.power ?? null,
+    displacement: l.displacement ?? null,
+    description: l.description ?? existing?.description ?? null,
+    suspiciousKeywords: existing?.keywordExempt
+      ? []
+      : await getSuspiciousKeywords(),
+  });
+  data.suspicious = quality.suspicious;
+  data.suspiciousReasons = JSON.stringify(quality.reasons);
 
   if (existing) {
     // apagado por um admin — atualizamos os dados mas fica fora do site

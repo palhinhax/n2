@@ -12,11 +12,13 @@
 import { prisma } from "../lib/prisma";
 import { assessListingQuality } from "../lib/listing-quality";
 import { normalizeVehicle } from "../lib/vehicle-normalize";
+import { getSuspiciousKeywords } from "../lib/suspicious-keywords";
 
 const DRY_RUN = process.argv.includes("--dry-run");
 const BATCH = 500;
 
 async function main() {
+  const keywords = await getSuspiciousKeywords();
   let cursor: string | undefined;
   let scanned = 0;
   let flagged = 0;
@@ -41,6 +43,8 @@ async function main() {
         gearbox: true,
         power: true,
         displacement: true,
+        description: true,
+        keywordExempt: true,
         suspicious: true,
         suspiciousReasons: true,
       },
@@ -62,6 +66,7 @@ async function main() {
         ...r,
         title: sourceTitle,
         brand: nv.brand ?? r.brand,
+        suspiciousKeywords: r.keywordExempt ? [] : keywords,
       });
       const reasonsJson = JSON.stringify(q.reasons);
       if (r.suspicious === q.suspicious && r.suspiciousReasons === reasonsJson)

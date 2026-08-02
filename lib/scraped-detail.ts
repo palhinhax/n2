@@ -4,6 +4,7 @@ import type { ListingDetail } from "../scripts/scraper/detail";
 import { fetchDetailFromCarrosApi } from "../scripts/scraper/sites/carros-api";
 import { isBackupListingSource } from "../scripts/scraper/types";
 import { assessListingQuality } from "@/lib/listing-quality";
+import { getSuspiciousKeywords } from "@/lib/suspicious-keywords";
 
 // re-enriquecer se os detalhes tiverem mais de N dias
 const STALE_DAYS = 7;
@@ -36,6 +37,8 @@ export async function ensureListingDetail(listing: {
   rawTitle?: string | null;
   brand?: string | null;
   price?: number | null;
+  description?: string | null;
+  keywordExempt?: boolean;
 }) {
   const fresh =
     listing.detailsFetchedAt &&
@@ -103,6 +106,10 @@ export async function ensureListingDetail(listing: {
     gearbox: listing.gearbox ?? detail.gearbox ?? null,
     power: listing.power ?? detail.power ?? null,
     displacement: listing.displacement ?? detail.displacement ?? null,
+    description: detail.description ?? listing.description ?? null,
+    suspiciousKeywords: listing.keywordExempt
+      ? []
+      : await getSuspiciousKeywords(),
   });
 
   return prisma.scrapedListing.update({

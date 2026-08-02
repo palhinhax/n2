@@ -103,6 +103,9 @@ export default async function Admin() {
           <Link href="/admin/instagram" className="btn-line btn-sm">
             📸 Posts para Instagram →
           </Link>
+          <Link href="/admin/suspeitos" className="btn-line btn-sm">
+            🚫 Palavras suspeitas →
+          </Link>
           <Link href="/admin/reports" className="btn-line btn-sm">
             ⚑ Denúncias
             {nNewReports > 0 && (

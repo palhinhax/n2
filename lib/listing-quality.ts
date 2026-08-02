@@ -15,6 +15,7 @@ export const SUSPICION_REASONS = {
   price: "preco_implausivel",
   parts: "possivel_pecas",
   nonVehicle: "nao_veiculo",
+  keyword: "palavra_suspeita",
 } as const;
 
 export type SuspicionReason =
@@ -26,6 +27,7 @@ export const REASON_LABEL: Record<SuspicionReason, string> = {
   preco_implausivel: "Preço por confirmar",
   possivel_pecas: "Possível anúncio de peças",
   nao_veiculo: "Anúncio não automóvel",
+  palavra_suspeita: "Contém palavra suspeita",
 };
 
 // Limites (ver feedback SEO):
@@ -49,6 +51,11 @@ export interface QualityInput {
   gearbox?: string | null;
   power?: number | null;
   displacement?: number | null;
+  /** descrição completa do anúncio (quando já foi enriquecido) */
+  description?: string | null;
+  /** palavras suspeitas geridas pelo admin (/admin/suspeitos) — pesquisadas
+   *  no título E na descrição; passar [] quando o anúncio está isento */
+  suspiciousKeywords?: string[];
 }
 
 // "para peças", "só peças", "salvado", "desmontagem", ou título a começar por
@@ -105,6 +112,31 @@ const normForMatch = (s: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * Palavras suspeitas do admin: devolve as que aparecem (palavra inteira,
+ * sem acentos, mai\u00fasculas indiferentes) em algum dos textos. Suporta frases
+ * ("cama articulada") com qualquer espa\u00e7amento entre as palavras.
+ */
+export function matchSuspiciousKeywords(
+  keywords: string[],
+  ...texts: Array<string | null | undefined>
+): string[] {
+  if (!keywords.length) return [];
+  const haystack = texts
+    .filter((t): t is string => !!t)
+    .map(normForMatch)
+    .join("\n");
+  if (!haystack) return [];
+  return keywords.filter((kw) => {
+    const norm = normForMatch(kw).trim();
+    if (!norm) return false;
+    const pattern = norm.split(/\s+/).map(escapeRe).join("\\s+");
+    return new RegExp(`(?<![a-z0-9])${pattern}(?![a-z0-9])`).test(haystack);
+  });
+}
+
 export interface QualityResult {
   suspicious: boolean;
   reasons: SuspicionReason[];
@@ -155,6 +187,16 @@ export function assessListingQuality(l: QualityInput): QualityResult {
       (!looksLikeCar && hasSoftNonVehicleTitle(l.title)))
   )
     reasons.push(SUSPICION_REASONS.nonVehicle);
+
+  // Palavras do admin: aplicam-se sempre (sem gate looksLikeCar — uma mota tem
+  // km/ano/combustível e mesmo assim queremos apanhá-la). Falsos positivos
+  // resolvem-se com keywordExempt no /admin/suspeitos.
+  if (
+    l.suspiciousKeywords?.length &&
+    matchSuspiciousKeywords(l.suspiciousKeywords, l.title, l.description)
+      .length > 0
+  )
+    reasons.push(SUSPICION_REASONS.keyword);
 
   return { suspicious: reasons.length > 0, reasons };
 }

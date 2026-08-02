@@ -282,6 +282,10 @@ model ScrapedListing {
   // removido manualmente por um admin — o scraper nunca o reativa
   hiddenByAdmin Boolean @default(false)
 
+  // admin confirmou que é mesmo um carro — as palavras suspeitas
+  // (/admin/suspeitos) deixam de o marcar
+  keywordExempt Boolean @default(false)
+
   // histórico de preço (descida) — preenchido quando o scraper deteta mudança
   previousPrice  Int?
   priceChangedAt DateTime?
@@ -297,6 +301,16 @@ model ScrapedListing {
   @@index([active, isDuplicate])
   @@index([active, isDuplicate, suspicious])
   @@index([url])
+}
+
+// Palavra/frase suspeita gerida pelo admin em /admin/suspeitos — anúncios cujo
+// título OU descrição a contenha (palavra inteira, sem acentos) são marcados
+// suspeitos com a razão "palavra_suspeita" (ver lib/suspicious-keywords.ts).
+model SuspiciousKeyword {
+  id        String   @id @default(cuid())
+  word      String   @unique // normalizada: minúsculas, sem acentos
+  matches   Int      @default(0) // anúncios apanhados na última análise
+  createdAt DateTime @default(now())
 }
 
 // Ponto do histórico de preço de um anúncio (do site OU externo).
