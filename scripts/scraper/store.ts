@@ -55,6 +55,11 @@ export async function upsertListing(
     year: l.year ?? null,
     price: l.price ?? null,
     title: l.title,
+    brand: nv.brand ?? l.brand ?? null,
+    fuel: l.fuel ?? null,
+    gearbox: l.gearbox ?? null,
+    power: l.power ?? null,
+    displacement: l.displacement ?? null,
   });
   data.suspicious = quality.suspicious;
   data.suspiciousReasons = JSON.stringify(quality.reasons);

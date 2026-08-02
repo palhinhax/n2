@@ -40,6 +40,15 @@ export interface QualityInput {
   price?: number | null;
   /** título original do anúncio (para detetar anúncios de peças/salvados) */
   title?: string | null;
+  /** marca automóvel reconhecida — se presente, o título nunca marca
+   *  não-veículo (protege "Renault Mégane c/ suporte bicicletas") */
+  brand?: string | null;
+  /** sinais mecânicos — quando presentes, o título nunca marca não-veículo
+   *  (protege autocaravanas "Fiat Ducato com cama" e afins) */
+  fuel?: string | null;
+  gearbox?: string | null;
+  power?: number | null;
+  displacement?: number | null;
 }
 
 // "para peças", "só peças", "salvado", "desmontagem", ou título a começar por
@@ -48,10 +57,47 @@ export interface QualityInput {
 const PARTS_TITLE_RE =
   /\b(?:para|so|p) ?pecas?\b|\bsalvado\b|\bdesmontagem\b|^\s*(?:carrocaria|carroceria)\b/;
 
-// Mobília e outros artigos não automóveis que por vezes aparecem nos feeds
-// classificados por causa de categorias erradas na origem.
-const NON_VEHICLE_TITLE_RE =
-  /\bikea\b|\b(?:cama|camas|colchao|colchoes|roupeiro|armario|sofa|estante|movel|moveis|mobilia|mobiliario)\b/;
+// Mobília, eletrónica e outros artigos não automóveis que aparecem nos feeds
+// (o OLX injeta "anúncios relacionados" de outras categorias nas páginas de
+// resultados de carros).
+const STRONG_NON_VEHICLE_TITLE_RES = [
+  /^\s*(?:bicicleta|bicicletas|btt|e-?bike|trotinete|trotineta)\b/,
+  /\btrek\s+(?:emonda|madone|domane|marlin|fuel|slash|rail|checkpoint|fx|x-?caliber)\b/,
+];
+
+// Só se aplicam quando o anúncio não traz nenhum sinal mecânico — protege
+// autocaravanas ("Fiat Ducato com cama") e carros com extras como porta-bicicletas.
+const SOFT_NON_VEHICLE_TITLE_RES = [
+  // mobília
+  /\bikea\b|\b(?:cama|camas|colchao|colchoes|roupeiro|armario|sofa|estante)\b/,
+  /\b(?:movel|moveis|mobilia|mobiliario)\b/,
+  // bicicletas e trotinetes
+  /\b(?:bicicleta|bicicletas|btt|e-?bike|trotinete|trotineta)\b/,
+  /\b(?:trek|emonda|domane|madone|specialized|cannondale|orbea|bianchi|canyon|merida|colnago|pinarello|lapierre)\b/,
+  /\btrek\s+(?:emonda|madone|domane|marlin|fuel|slash|rail|checkpoint|fx|x-?caliber)\b/,
+  // eletrónica
+  /\b(?:telemovel|telemoveis|iphone|ipad|tablet|smartphone|macbook|portatil)\b/,
+  /\b(?:playstation|ps[345]|xbox|nintendo|consola|drone)\b/,
+];
+
+const VEHICLE_BIKE_ACCESSORY_RE =
+  /\b(?:porta|suporte|barras?|rack)\s+(?:\d+\s+)?(?:de\s+)?bicicletas?\b|\bbicicletas?\s+(?:thule|rack|suporte|barras?)\b/;
+
+const hasStrongNonVehicleTitle = (title: string) => {
+  const t = normForMatch(title);
+  return STRONG_NON_VEHICLE_TITLE_RES.some((re) => re.test(t));
+};
+
+const hasSoftNonVehicleTitle = (title: string) => {
+  const t = normForMatch(title);
+  if (VEHICLE_BIKE_ACCESSORY_RE.test(t)) return false;
+  return SOFT_NON_VEHICLE_TITLE_RES.some((re) => re.test(t));
+};
+
+// o título fala explicitamente de um automóvel — mesmo sem dados estruturados
+// ("troco carro por iphone" é um anúncio de carro)
+const CAR_WORD_RE =
+  /\b(?:carro|carrinha|automovel|viatura|monovolume|autocaravana|camper|jipe|suv)\b/;
 
 const normForMatch = (s: string) =>
   s
@@ -87,7 +133,27 @@ export function assessListingQuality(l: QualityInput): QualityResult {
   if (l.title && PARTS_TITLE_RE.test(normForMatch(l.title)))
     reasons.push(SUSPICION_REASONS.parts);
 
-  if (l.title && NON_VEHICLE_TITLE_RE.test(normForMatch(l.title)))
+  // Sinais de que é mesmo um automóvel: dados mecânicos (só um veículo os
+  // tem), ano, marca reconhecida, ou o próprio título a dizer "carro".
+  const looksLikeCar =
+    l.km != null ||
+    l.fuel != null ||
+    l.gearbox != null ||
+    l.power != null ||
+    l.displacement != null ||
+    l.year != null ||
+    l.brand != null ||
+    (l.title != null && CAR_WORD_RE.test(normForMatch(l.title)));
+
+  // NOTA: já tentámos marcar automaticamente anúncios "vazios" (sem marca,
+  // ano, km…) como não-veículo — não dá: milhares de anúncios OLX reais chegam
+  // só com título+preço ("vendo dacia sandero"). Daí a lista de palavras,
+  // que só se aplica quando nada no anúncio aponta para um automóvel.
+  if (
+    l.title != null &&
+    (hasStrongNonVehicleTitle(l.title) ||
+      (!looksLikeCar && hasSoftNonVehicleTitle(l.title)))
+  )
     reasons.push(SUSPICION_REASONS.nonVehicle);
 
   return { suspicious: reasons.length > 0, reasons };

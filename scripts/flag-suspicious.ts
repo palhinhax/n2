@@ -11,6 +11,7 @@
  */
 import { prisma } from "../lib/prisma";
 import { assessListingQuality } from "../lib/listing-quality";
+import { normalizeVehicle } from "../lib/vehicle-normalize";
 
 const DRY_RUN = process.argv.includes("--dry-run");
 const BATCH = 500;
@@ -34,6 +35,12 @@ async function main() {
         km: true,
         year: true,
         price: true,
+        brand: true,
+        model: true,
+        fuel: true,
+        gearbox: true,
+        power: true,
+        displacement: true,
         suspicious: true,
         suspiciousReasons: true,
       },
@@ -44,7 +51,18 @@ async function main() {
 
     for (const r of rows) {
       const sourceTitle = r.rawTitle || r.title;
-      const q = assessListingQuality({ ...r, title: sourceTitle });
+      // a marca da BD pode ser null em anúncios OLX antigos — tenta
+      // reconhecê-la no título para o gate de "não-veículo"
+      const nv = normalizeVehicle({
+        brand: r.brand,
+        model: null,
+        title: sourceTitle,
+      });
+      const q = assessListingQuality({
+        ...r,
+        title: sourceTitle,
+        brand: nv.brand ?? r.brand,
+      });
       const reasonsJson = JSON.stringify(q.reasons);
       if (r.suspicious === q.suspicious && r.suspiciousReasons === reasonsJson)
         continue;

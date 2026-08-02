@@ -36,6 +36,10 @@ async function main() {
         km: true,
         year: true,
         price: true,
+        fuel: true,
+        gearbox: true,
+        power: true,
+        displacement: true,
         suspicious: true,
         suspiciousReasons: true,
       },
@@ -59,6 +63,11 @@ async function main() {
         year: r.year,
         price: r.price,
         title: sourceTitle,
+        brand: nv.brand ?? r.brand,
+        fuel: r.fuel,
+        gearbox: r.gearbox,
+        power: r.power,
+        displacement: r.displacement,
       });
       const next = {
         title: nv.title,
