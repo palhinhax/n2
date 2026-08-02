@@ -471,7 +471,21 @@ function parseCards(html: string): Listing[] {
   for (const [id, listing] of Array.from(htmlById)) {
     if (!out.has(id)) out.set(id, listing);
   }
-  return Array.from(out.values());
+
+  // Quando uma pesquisa seca, o OLX enche a página com "anúncios recomendados"
+  // de TODAS as categorias (móveis, imóveis, telemóveis…). Sem nenhum sinal de
+  // carro, descartamos — o que também faz a paginação secar naturalmente em vez
+  // de percorrer páginas de recomendações até ao travão. O ano não conta como
+  // sinal: pode vir de um número no título ("cromos do mundial 2026").
+  return Array.from(out.values()).filter(
+    (l) =>
+      l.brand != null ||
+      l.model != null ||
+      l.km != null ||
+      l.fuel != null ||
+      l.gearbox != null ||
+      l.power != null
+  );
 }
 
 export const olx: SiteAdapter = {
