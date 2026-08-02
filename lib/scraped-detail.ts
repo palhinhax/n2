@@ -3,6 +3,7 @@ import { fetchListingDetail } from "../scripts/scraper/detail";
 import type { ListingDetail } from "../scripts/scraper/detail";
 import { fetchDetailFromCarrosApi } from "../scripts/scraper/sites/carros-api";
 import { isBackupListingSource } from "../scripts/scraper/types";
+import { assessListingQuality } from "@/lib/listing-quality";
 
 // re-enriquecer se os detalhes tiverem mais de N dias
 const STALE_DAYS = 7;
@@ -31,6 +32,10 @@ export async function ensureListingDetail(listing: {
   location?: string | null;
   sellerType?: string | null;
   sellerName?: string | null;
+  title?: string;
+  rawTitle?: string | null;
+  brand?: string | null;
+  price?: number | null;
 }) {
   const fresh =
     listing.detailsFetchedAt &&
@@ -85,6 +90,21 @@ export async function ensureListingDetail(listing: {
     new Set([...(detail.imageUrls ?? []), ...existingImgs])
   );
 
+  // com os detalhes completos, reavalia a qualidade: um falso positivo de
+  // "não veículo" (carro com dados escassos no cartão) limpa-se sozinho; um
+  // iPhone/bicicleta continua sem sinais mecânicos e fica marcado.
+  const quality = assessListingQuality({
+    km: listing.km ?? detail.km ?? null,
+    year: listing.year ?? detail.year ?? null,
+    price: listing.price ?? null,
+    title: listing.rawTitle ?? listing.title ?? null,
+    brand: listing.brand ?? null,
+    fuel: listing.fuel ?? detail.fuel ?? null,
+    gearbox: listing.gearbox ?? detail.gearbox ?? null,
+    power: listing.power ?? detail.power ?? null,
+    displacement: listing.displacement ?? detail.displacement ?? null,
+  });
+
   return prisma.scrapedListing.update({
     where: { id: listing.id },
     data: {
@@ -112,6 +132,8 @@ export async function ensureListingDetail(listing: {
       imageUrls: mergedImgs.length
         ? JSON.stringify(mergedImgs)
         : listing.imageUrls,
+      suspicious: quality.suspicious,
+      suspiciousReasons: JSON.stringify(quality.reasons),
       detailsFetchedAt: new Date(),
     },
   });
