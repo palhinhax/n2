@@ -14,6 +14,7 @@ const KIND_ICON: Record<string, string> = {
   OFFER_ACCEPTED: "🤝",
   OFFER_REJECTED: "✕",
   DEAL_RADAR: "🎯",
+  INDEX_POST: "📈",
 };
 
 export default async function Notificacoes() {

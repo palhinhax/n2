@@ -8,7 +8,8 @@ export type NotificationKind =
   | "OFFER_RECEIVED"
   | "OFFER_ACCEPTED"
   | "OFFER_REJECTED"
-  | "DEAL_RADAR";
+  | "DEAL_RADAR"
+  | "INDEX_POST"; // lembrete mensal (admins): publicar o índice no Instagram
 
 export async function createNotification(opts: {
   userId: string;

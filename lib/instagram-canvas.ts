@@ -280,6 +280,160 @@ export async function drawInstagramPost(
   return !!img;
 }
 
+// ---------------------------------------------------------------------------
+// Post do Índice Nacional 2 (mensal) — cartão de dados, sem foto.
+// ---------------------------------------------------------------------------
+
+export interface IgIndexData {
+  monthLabel: string; // "agosto 2026"
+  median: string; // "18 900 €"
+  momPct: number | null; // +11.8 / -2.1
+  activeCount: string; // "46 265"
+  months: { label: string; median: number }[]; // série p/ gráfico de barras
+  fuels: { seg: string; median: string }[]; // até 5 linhas
+}
+
+export async function drawIndexPost(
+  canvas: HTMLCanvasElement,
+  d: IgIndexData
+): Promise<void> {
+  canvas.width = IG_W;
+  canvas.height = IG_H;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  await ensureFonts();
+
+  ctx.fillStyle = C.cream;
+  ctx.fillRect(0, 0, IG_W, IG_H);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+
+  // selo + mês
+  pill(ctx, "ÍNDICE NACIONAL 2", PAD, 52, {
+    font: head(32, 700),
+    bg: C.ink,
+    fg: C.cream,
+    h: 62,
+    padX: 28,
+  });
+  ctx.font = body(32, 600);
+  ctx.fillStyle = C.muted;
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  ctx.fillText(d.monthLabel, IG_W - PAD, 52 + 31);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+
+  // título
+  let y = 170;
+  ctx.font = head(70, 800);
+  ctx.fillStyle = C.ink;
+  ctx.fillText("Carros usados em Portugal", PAD, y);
+  y += 96;
+
+  // mediana gigante
+  ctx.font = body(30, 600);
+  ctx.fillStyle = C.muted;
+  ctx.fillText("PREÇO MEDIANO DO MERCADO", PAD, y);
+  y += 44;
+  ctx.font = head(150, 800);
+  ctx.fillStyle = C.clay;
+  ctx.fillText(d.median, PAD, y);
+  const medianW = ctx.measureText(d.median).width;
+
+  // variação mensal ao lado
+  if (d.momPct != null) {
+    const up = d.momPct > 0;
+    const txt = `${up ? "▲" : "▼"} ${up ? "+" : ""}${d.momPct.toLocaleString("pt-PT")}% vs mês anterior`;
+    pill(ctx, txt, PAD + medianW + 32, y + 84, {
+      font: body(30, 600),
+      bg: up ? "#F3E0D4" : "#E4EAD6",
+      fg: up ? "#8a3b12" : C.olive,
+      h: 60,
+      padX: 24,
+    });
+    ctx.textBaseline = "top";
+  }
+  y += 190;
+
+  // gráfico de barras (mediana por mês)
+  const chart = { x: PAD, w: IG_W - PAD * 2, h: 260 };
+  const maxMedian = Math.max(...d.months.map((m) => m.median), 1);
+  const n = d.months.length;
+  const gap = 18;
+  const barW = Math.min(120, (chart.w - gap * (n - 1)) / n);
+  const totalW = barW * n + gap * (n - 1);
+  let bx = chart.x + (chart.w - totalW) / 2;
+  const baseline = y + chart.h;
+  for (const m of d.months) {
+    const h = Math.max(26, (m.median / maxMedian) * (chart.h - 60));
+    ctx.fillStyle = C.clay;
+    roundRect(ctx, bx, baseline - h, barW, h, 12);
+    ctx.fill();
+    // valor por cima
+    ctx.font = body(26, 600);
+    ctx.fillStyle = C.ink;
+    ctx.textAlign = "center";
+    ctx.fillText(
+      `${Math.round(m.median / 100) / 10}k`,
+      bx + barW / 2,
+      baseline - h - 36
+    );
+    // mês por baixo
+    ctx.fillStyle = C.muted;
+    ctx.font = body(24, 600);
+    ctx.fillText(m.label, bx + barW / 2, baseline + 12);
+    ctx.textAlign = "left";
+    bx += barW + gap;
+  }
+  y = baseline + 70;
+
+  // medianas por combustível (duas colunas)
+  const colW = (IG_W - PAD * 2 - 24) / 2;
+  const rowH = 66;
+  d.fuels.slice(0, 6).forEach((f, i) => {
+    const cx = PAD + (i % 2) * (colW + 24);
+    const cy = y + Math.floor(i / 2) * (rowH + 12);
+    ctx.fillStyle = C.white;
+    roundRect(ctx, cx, cy, colW, rowH, 16);
+    ctx.fill();
+    ctx.strokeStyle = C.stone2;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.textBaseline = "middle";
+    ctx.font = body(28, 600);
+    ctx.fillStyle = C.bark;
+    ctx.fillText(f.seg, cx + 22, cy + rowH / 2 + 1);
+    ctx.font = head(38, 800);
+    ctx.fillStyle = C.ink;
+    ctx.textAlign = "right";
+    ctx.fillText(f.median, cx + colW - 22, cy + rowH / 2 + 1);
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+  });
+
+  // rodapé
+  const footY = IG_H - 96;
+  ctx.strokeStyle = C.stone2;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(PAD, footY - 26);
+  ctx.lineTo(IG_W - PAD, footY - 26);
+  ctx.stroke();
+
+  ctx.font = head(46, 800);
+  ctx.fillStyle = C.olive;
+  ctx.textBaseline = "middle";
+  ctx.fillText("nacional2.pt/indice-precos", PAD, footY + 12);
+
+  ctx.font = body(26, 500);
+  ctx.fillStyle = C.muted;
+  ctx.textAlign = "right";
+  ctx.fillText(`${d.activeCount} anúncios · 4 portais`, IG_W - PAD, footY + 12);
+  ctx.textAlign = "left";
+}
+
 export function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob(

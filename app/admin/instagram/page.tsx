@@ -5,14 +5,17 @@ import { prisma } from "@/lib/prisma";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import InstagramStudio from "@/components/instagram-studio";
+import InstagramIndexStudio from "@/components/instagram-index-studio";
 import {
   loadSubject,
   buildCaption,
+  buildIndexCaption,
   canvasFields,
   instagramConfigured,
   checkInstagramAccount,
   type IgKind,
 } from "@/lib/instagram";
+import { computeMarketIndex, monthLabel } from "@/lib/market-index";
 import { fmtEur } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
@@ -94,13 +97,15 @@ export default async function InstagramAdmin({
       ? searchParams.kind
       : null
   ) as IgKind | null;
+  const isIndexMode = searchParams.kind === "indice";
   const id = searchParams.id ?? null;
   const q = searchParams.q ?? "";
 
   const apiEnabled = instagramConfigured();
 
-  const [subject, candidates, history, account] = await Promise.all([
+  const [subject, marketIdx, candidates, history, account] = await Promise.all([
     kind && id ? loadSubject(kind, id) : Promise.resolve(null),
+    isIndexMode ? computeMarketIndex() : Promise.resolve(null),
     findCandidates(q),
     prisma.instagramPost.findMany({ orderBy: { createdAt: "desc" }, take: 10 }),
     // confirma logo o token: os de longa duração expiram ao fim de 60 dias e
@@ -144,6 +149,56 @@ export default async function InstagramAdmin({
           </div>
         ) : null}
 
+        {isIndexMode ? (
+          marketIdx && marketIdx.currentMedian != null ? (
+            <InstagramIndexStudio
+              data={{
+                monthLabel:
+                  marketIdx.months.length > 0
+                    ? monthLabel(
+                        marketIdx.months[marketIdx.months.length - 1].month
+                      )
+                    : new Date().toLocaleDateString("pt-PT", {
+                        month: "long",
+                        year: "numeric",
+                      }),
+                median: fmtEur(marketIdx.currentMedian),
+                momPct: marketIdx.momPct,
+                activeCount: marketIdx.activeCount.toLocaleString("pt-PT"),
+                months: marketIdx.months.map((m) => ({
+                  label: monthLabel(m.month).split(" ")[0],
+                  median: m.median,
+                })),
+                fuels: marketIdx.fuels.map((f) => ({
+                  seg: f.seg,
+                  median: fmtEur(f.median),
+                })),
+              }}
+              defaultCaption={buildIndexCaption({
+                monthLabel:
+                  marketIdx.months.length > 0
+                    ? monthLabel(
+                        marketIdx.months[marketIdx.months.length - 1].month
+                      )
+                    : new Date().toLocaleDateString("pt-PT", {
+                        month: "long",
+                        year: "numeric",
+                      }),
+                median: marketIdx.currentMedian,
+                momPct: marketIdx.momPct,
+                activeCount: marketIdx.activeCount,
+                fuels: marketIdx.fuels,
+              })}
+              apiEnabled={apiEnabled && !accountError}
+            />
+          ) : (
+            <div className="n2-card p-6 text-n2muted">
+              Os dados do índice ainda não estão disponíveis (é preciso pelo
+              menos um mês de scraping com amostra suficiente).
+            </div>
+          )
+        ) : null}
+
         {subject && kind && id ? (
           <InstagramStudio
             kind={kind}
@@ -156,6 +211,17 @@ export default async function InstagramAdmin({
             apiEnabled={apiEnabled && !accountError}
           />
         ) : null}
+
+        {!isIndexMode && (
+          <div className="mb-6">
+            <Link
+              href="/admin/instagram?kind=indice"
+              className="btn-line btn-sm inline-flex"
+            >
+              📈 Post mensal do índice de preços →
+            </Link>
+          </div>
+        )}
 
         <section className="mt-8">
           <h2 className="mb-3 font-head text-[1.4rem] font-extrabold text-ink">

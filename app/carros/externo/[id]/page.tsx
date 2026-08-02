@@ -171,7 +171,7 @@ export default async function ExternalCarDetail({
   const sourceLabel = SOURCE_LABEL[listing.source] ?? listing.source;
 
   // o mesmo carro noutros portais (mesma dedupeKey) — comparação de preços
-  const [stats, history, sameCar] = await Promise.all([
+  const [stats, history, sameCarRaw] = await Promise.all([
     marketStats({
       brand: listing.brand,
       model: listing.model,
@@ -185,13 +185,38 @@ export default async function ExternalCarDetail({
             active: true,
             suspicious: false,
             id: { not: listing.id },
+            // só portais diferentes: dentro do mesmo portal, dois carros
+            // distintos colidem facilmente na dedupeKey (a republicação no
+            // mesmo portal já é tratada pelo histórico do anúncio)
+            source: { not: listing.source },
           },
-          select: { id: true, source: true, price: true },
+          select: {
+            id: true,
+            source: true,
+            price: true,
+            fuel: true,
+            gearbox: true,
+            power: true,
+            km: true,
+          },
           orderBy: { price: "asc" },
           take: 6,
         })
       : Promise.resolve([]),
   ]);
+  // a dedupeKey é propositadamente tolerante; para AFIRMAR "é o mesmo carro"
+  // exigimos também combustível/caixa/potência/km compatíveis
+  const same = (a?: string | null, b?: string | null) =>
+    !a || !b || a.trim().toLowerCase() === b.trim().toLowerCase();
+  const sameCar = sameCarRaw.filter(
+    (s) =>
+      same(s.fuel, listing.fuel) &&
+      same(s.gearbox, listing.gearbox) &&
+      (s.power == null || listing.power == null || s.power === listing.power) &&
+      (s.km == null ||
+        listing.km == null ||
+        Math.abs(s.km - listing.km) <= 1500)
+  );
   const cheapestElsewhere = sameCar.find((s) => s.price != null);
   const isCheapestHere =
     listing.price != null &&
@@ -443,11 +468,12 @@ export default async function ExternalCarDetail({
             {sameCar.length > 0 && (
               <div className="n2-card p-5">
                 <h2 className="mb-1 font-head text-[1.05rem] font-bold text-ink">
-                  🔀 O mesmo carro noutros anúncios
+                  🔀 O mesmo carro noutros portais
                 </h2>
                 <p className="mb-3 text-[0.8rem] text-n2muted">
-                  Detetámos este carro anunciado mais do que uma vez — noutro
-                  portal ou republicado. Só no Nacional 2 consegues comparar.
+                  Marca, modelo, ano, km, combustível, caixa e potência
+                  coincidem com um anúncio noutro portal — tudo indica que é o
+                  mesmo carro. Só no Nacional 2 consegues comparar.
                 </p>
                 <ul className="flex flex-col gap-2">
                   <li className="flex items-center justify-between rounded-xl bg-cream px-3 py-2 text-[0.9rem]">

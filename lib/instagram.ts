@@ -227,6 +227,47 @@ export function buildCaption(s: IgSubject): string {
 
 export const IG_CAPTION_MAX = 2200;
 
+/** Legenda determinística para o post mensal do Índice Nacional 2. */
+export function buildIndexCaption(idx: {
+  monthLabel: string;
+  median: number;
+  momPct: number | null;
+  activeCount: number;
+  fuels: { seg: string; median: number }[];
+}): string {
+  const FUEL_EMOJI: Record<string, string> = {
+    Gasolina: "⛽",
+    Diesel: "🛢",
+    Elétrico: "⚡",
+    Híbrido: "🔋",
+    "Híbrido Plug-In": "🔌",
+  };
+  const mom =
+    idx.momPct == null
+      ? ""
+      : ` (${idx.momPct > 0 ? "+" : ""}${idx.momPct.toLocaleString("pt-PT")}% vs mês anterior)`;
+  const lines = [
+    `📈 Índice Nacional 2 — ${idx.monthLabel}`,
+    "",
+    `Preço mediano dos carros usados em Portugal: ${fmtEur(idx.median)}${mom}`,
+    "",
+    "Por combustível:",
+    ...idx.fuels
+      .slice(0, 5)
+      .map((f) => `${FUEL_EMOJI[f.seg] ?? "•"} ${f.seg} — ${fmtEur(f.median)}`),
+    "",
+    `Calculado a partir de ${idx.activeCount.toLocaleString("pt-PT")} anúncios ativos, agregados de todos os grandes portais.`,
+    "",
+    "Índice completo e evolução mês a mês 👉 nacional-2.pt/indice-precos (link na bio)",
+    "",
+    "#carrosusados #mercadoautomovel #carros #portugal #precosdoscarros #comprarcarro #nacional2",
+  ];
+  return lines
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 // ---------------------------------------------------------------------------
 // Publicação via Graph API
 // ---------------------------------------------------------------------------

@@ -205,6 +205,36 @@ export async function GET(request: Request) {
       }
     }
 
+    // ---- 4. dia 1 do mês: lembra os admins de publicar o índice no IG ----
+    if (new Date().getDate() === 1) {
+      const admins = await prisma.user.findMany({
+        where: { role: "ADMIN" },
+        select: { id: true },
+      });
+      const monthTitle = new Date().toLocaleDateString("pt-PT", {
+        month: "long",
+        year: "numeric",
+      });
+      for (const a of admins) {
+        // evita duplicar se o cron correr 2x no mesmo dia
+        const already = await prisma.notification.findFirst({
+          where: {
+            userId: a.id,
+            kind: "INDEX_POST",
+            createdAt: { gte: new Date(Date.now() - 86400000) },
+          },
+        });
+        if (already) continue;
+        await createNotification({
+          userId: a.id,
+          kind: "INDEX_POST",
+          title: `📈 Publicar o índice de ${monthTitle} no Instagram`,
+          body: "O post mensal está pronto a gerar — um clique para rever e publicar.",
+          url: "/admin/instagram?kind=indice",
+        });
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       priceDrops,

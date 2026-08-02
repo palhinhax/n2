@@ -33,11 +33,13 @@ export async function POST(req: Request) {
   }
 
   const b = await req.json().catch(() => ({}));
-  const kind = b.kind as IgKind;
+  const kind = b.kind as IgKind | "indice";
   const mode: "manual" | "api" = b.mode === "api" ? "api" : "manual";
   const caption = String(b.caption ?? "").slice(0, IG_CAPTION_MAX);
 
-  if ((kind !== "car" && kind !== "listing") || !b.id) {
+  // "indice" = post mensal do Índice Nacional 2 (cartão de dados, sem anúncio)
+  const isIndex = kind === "indice";
+  if (!isIndex && ((kind !== "car" && kind !== "listing") || !b.id)) {
     return NextResponse.json(
       { error: "Parâmetros kind/id em falta." },
       { status: 400 }
@@ -47,19 +49,23 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Legenda vazia." }, { status: 400 });
   }
 
-  const s = await loadSubject(kind, b.id);
-  if (!s) {
+  const s = isIndex ? null : await loadSubject(kind as IgKind, b.id);
+  if (!isIndex && !s) {
     return NextResponse.json(
       { error: "Anúncio não encontrado." },
       { status: 404 }
     );
   }
 
+  const monthTitle = new Date().toLocaleDateString("pt-PT", {
+    month: "long",
+    year: "numeric",
+  });
   const base = {
     kind,
-    carId: kind === "car" ? s.id : null,
-    listingId: kind === "listing" ? s.id : null,
-    title: s.title,
+    carId: kind === "car" && s ? s.id : null,
+    listingId: kind === "listing" && s ? s.id : null,
+    title: s ? s.title : `Índice Nacional 2 — ${monthTitle}`,
     caption,
   };
 
@@ -109,7 +115,7 @@ export async function POST(req: Request) {
     if (!jpeg.length || jpeg.length > MAX_IMAGE_BYTES) {
       return NextResponse.json({ error: "Imagem inválida." }, { status: 400 });
     }
-    const key = `instagram/${kind}-${s.id}-${Date.now()}.jpg`;
+    const key = `instagram/${kind}-${s ? s.id : "mensal"}-${Date.now()}.jpg`;
     ({ publicUrl: imageUrl } = await uploadObject(key, jpeg, "image/jpeg"));
   } catch (err) {
     console.error("[instagram/publish] imagem", err);
