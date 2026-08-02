@@ -59,6 +59,7 @@ export default function ScraperAdmin() {
   const [site, setSite] = useState("");
   const [maxPages, setMaxPages] = useState(40);
   const [running, setRunning] = useState(false);
+  const [remoteRunning, setRemoteRunning] = useState(false);
   const [result, setResult] = useState<string | null>(null);
 
   async function runBatch(reset = false) {
@@ -88,6 +89,36 @@ export default function ScraperAdmin() {
       setResult(`Erro: ${String(err)}`);
     } finally {
       setRunning(false);
+    }
+  }
+
+  async function runRemoteApiScrape() {
+    setRemoteRunning(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/admin/carros-api/scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          site: site && site !== "CARROS_API" ? site : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setResult(`Erro API externa: ${data.error ?? res.status}`);
+      } else {
+        const sources = Array.isArray(data.sources)
+          ? ` (${data.sources.join(", ")})`
+          : "";
+        setResult(
+          `API externa: ${data.message ?? "corrida iniciada"}${sources}. Depois importa com "API Carros PT (backup)".`
+        );
+      }
+      router.refresh();
+    } catch (err) {
+      setResult(`Erro API externa: ${String(err)}`);
+    } finally {
+      setRemoteRunning(false);
     }
   }
 
@@ -131,7 +162,7 @@ export default function ScraperAdmin() {
           </label>
           <button
             type="button"
-            disabled={running}
+            disabled={running || remoteRunning}
             onClick={() => runBatch(false)}
             className="btn-olive btn-sm disabled:opacity-50"
           >
@@ -139,11 +170,19 @@ export default function ScraperAdmin() {
           </button>
           <button
             type="button"
-            disabled={running}
+            disabled={running || remoteRunning}
             onClick={() => runBatch(true)}
             className="btn-line btn-sm disabled:opacity-50"
           >
             ↻ Recomeçar ciclo
+          </button>
+          <button
+            type="button"
+            disabled={running || remoteRunning}
+            onClick={runRemoteApiScrape}
+            className="btn-line btn-sm disabled:opacity-50"
+          >
+            {remoteRunning ? "A iniciar..." : "Disparar API externa"}
           </button>
         </div>
         {result && (
