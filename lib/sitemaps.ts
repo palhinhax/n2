@@ -41,6 +41,7 @@ export async function sitemapEntries(
         { loc: abs("/marcas"), changefreq: "daily", priority: 0.8 },
         { loc: abs("/vender"), changefreq: "monthly", priority: 0.8 },
         { loc: abs("/avaliar"), changefreq: "monthly", priority: 0.7 },
+        { loc: abs("/comparar"), changefreq: "monthly", priority: 0.6 },
         { loc: abs("/calcular-isv"), changefreq: "monthly", priority: 0.7 },
         { loc: abs("/sobre"), changefreq: "monthly", priority: 0.6 },
         { loc: abs("/guias"), changefreq: "weekly", priority: 0.7 },

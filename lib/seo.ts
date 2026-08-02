@@ -6,11 +6,23 @@ export const SITE_URL = (
 ).replace(/\/$/, "");
 
 export const SITE_NAME = "Nacional 2";
+// Variantes do nome que as pessoas escrevem no Google — ajudam o Google a
+// associar a pesquisa de marca ao site (schema WebSite/Organization).
+export const SITE_ALTERNATE_NAMES = ["Nacional2", "nacional2.pt", "N2"];
 export const SITE_TAGLINE = "Compra e vende carros usados em Portugal. Grátis.";
 export const SITE_DESCRIPTION =
   "O maior agregador de carros usados em Portugal, 100% grátis para anunciar. " +
   "Milhares de anúncios de particulares e stands num só sítio, com garagem " +
   "digital, lembretes e ofertas diretas sem comissões.";
+
+// Imagem Open Graph por omissão (partilhas em WhatsApp/Facebook/Twitter).
+export const OG_IMAGE = "/og.jpg";
+
+// Perfis sociais oficiais — entram no sameAs do schema Organization.
+// Define NEXT_PUBLIC_INSTAGRAM_URL no .env (ex. https://www.instagram.com/nacional2pt).
+export const SOCIAL_LINKS = [process.env.NEXT_PUBLIC_INSTAGRAM_URL].filter(
+  (u): u is string => !!u
+);
 
 /** Converte um caminho relativo num URL absoluto do site. */
 export function absolute(path = "/"): string {

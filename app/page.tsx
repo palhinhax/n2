@@ -16,7 +16,14 @@ import { LuzzoAd } from "@/components/luzzo-ad";
 import BrandCombobox from "@/components/brand-combobox";
 import type { ListingItem } from "@/lib/car-listing";
 import JsonLd from "@/components/json-ld";
-import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from "@/lib/seo";
+import {
+  SITE_URL,
+  SITE_NAME,
+  SITE_DESCRIPTION,
+  SITE_TAGLINE,
+  SITE_ALTERNATE_NAMES,
+  SOCIAL_LINKS,
+} from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -25,8 +32,10 @@ const SITE_JSONLD = [
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: SITE_NAME,
+    alternateName: SITE_ALTERNATE_NAMES,
     url: SITE_URL,
     description: SITE_DESCRIPTION,
+    inLanguage: "pt-PT",
     potentialAction: {
       "@type": "SearchAction",
       target: {
@@ -40,10 +49,14 @@ const SITE_JSONLD = [
     "@context": "https://schema.org",
     "@type": "Organization",
     name: SITE_NAME,
+    alternateName: SITE_ALTERNATE_NAMES,
     url: SITE_URL,
     logo: `${SITE_URL}/brand/nacional2-logo.png`,
+    description: SITE_DESCRIPTION,
+    slogan: SITE_TAGLINE,
     email: "hello@athlifyr.com",
     areaServed: "PT",
+    ...(SOCIAL_LINKS.length > 0 ? { sameAs: SOCIAL_LINKS } : {}),
   },
 ];
 
@@ -92,7 +105,7 @@ export default async function Home() {
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#FFFDF7]/85 via-[#FBF3E0]/80 to-[#F7EAD0]/90" />
         <div className="relative mx-auto w-[min(1240px,94%)] py-12 text-center">
           <h1 className="font-head text-[clamp(1.9rem,4vw,3rem)] font-extrabold text-ink">
-            O portal de carros à tua maneira
+            O portal de carros usados à tua maneira
           </h1>
           <p className="mb-6 text-[1.08rem] text-n2muted">
             Compra e vende carros usados{" "}

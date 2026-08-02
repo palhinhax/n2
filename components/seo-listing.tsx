@@ -64,6 +64,13 @@ export default async function SeoListing({
     name: h1,
     numberOfItems: total,
     url: absolute(path),
+    itemListElement: firstPage.items.map((it, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      url: absolute(
+        it.kind === "car" ? `/carros/${it.id}` : `/carros/externo/${it.id}`
+      ),
+    })),
   };
   const faqLd =
     faq.length > 0

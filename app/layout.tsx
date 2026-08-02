@@ -6,7 +6,13 @@ import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/ui/toaster";
 import PwaRegister from "@/components/pwa-register";
 import FloatingAssistant from "@/components/floating-assistant";
-import { SITE_URL, SITE_NAME, SITE_TAGLINE, SITE_DESCRIPTION } from "@/lib/seo";
+import {
+  SITE_URL,
+  SITE_NAME,
+  SITE_TAGLINE,
+  SITE_DESCRIPTION,
+  OG_IMAGE,
+} from "@/lib/seo";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -29,12 +35,14 @@ export const metadata: Metadata = {
   applicationName: SITE_NAME,
   keywords: [
     "carros usados",
-    "comprar carro",
-    "vender carro",
+    "carros usados em Portugal",
+    "comprar carro usado",
+    "vender carro grátis",
     "stand automóvel",
     "carros baratos",
     "carros elétricos usados",
     "anúncios de carros",
+    "Nacional 2",
     "Portugal",
   ],
   alternates: { canonical: "/" },
@@ -45,12 +53,17 @@ export const metadata: Metadata = {
     siteName: SITE_NAME,
     title: `${SITE_NAME} — ${SITE_TAGLINE}`,
     description: SITE_DESCRIPTION,
+    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: SITE_NAME }],
   },
   twitter: {
     card: "summary_large_image",
     title: `${SITE_NAME} — ${SITE_TAGLINE}`,
     description: SITE_DESCRIPTION,
+    images: [OG_IMAGE],
   },
+  ...(process.env.GOOGLE_SITE_VERIFICATION
+    ? { verification: { google: process.env.GOOGLE_SITE_VERIFICATION } }
+    : {}),
   robots: {
     index: true,
     follow: true,
