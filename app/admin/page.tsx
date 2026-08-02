@@ -63,6 +63,9 @@ export default async function Admin() {
   ]);
   const sourceCounts: Record<string, number> = {};
   for (const row of bySource) sourceCounts[row.source] = row._count._all;
+  const nApiBackup = Object.entries(sourceCounts)
+    .filter(([source]) => source.startsWith("API_"))
+    .reduce((sum, [, count]) => sum + count, 0);
 
   // tolera a ausência do modelo/tabela Report enquanto a migração não corre
   let nNewReports = 0;
@@ -132,12 +135,14 @@ export default async function Admin() {
           <h2 className="mb-3 font-head text-[1.4rem] font-extrabold text-ink">
             🚗 Scraping de anúncios externos
           </h2>
-          <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-5">
+          <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
             {[
               ["Externos ativos", nExtActive],
               ["Standvirtual", sourceCounts.STANDVIRTUAL ?? 0],
               ["OLX", sourceCounts.OLX ?? 0],
               ["Pisca Pisca", sourceCounts.PISCAPISCA ?? 0],
+              ["Auto SAPO", sourceCounts.AUTOSAPO ?? 0],
+              ["API backup", nApiBackup],
               ["Com detalhes", nEnriched],
             ].map(([l, n]) => (
               <div key={l as string} className="n2-card p-4 text-center">

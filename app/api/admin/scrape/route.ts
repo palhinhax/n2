@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { runScrape } from "../../../../scripts/scraper/engine";
-import type { Source } from "../../../../scripts/scraper/types";
+import type { AdapterSource } from "../../../../scripts/scraper/types";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 /**
  * Dispara um lote de scraping a partir do painel de admin.
- * body: { site?: "OLX"|"STANDVIRTUAL"|"PISCAPISCA", maxPages?: number, reset?: boolean }
+ * body: { site?: "OLX"|"STANDVIRTUAL"|"PISCAPISCA"|"AUTOSAPO"|"CARROS_API", maxPages?: number, reset?: boolean }
  */
 export async function POST(req: Request) {
   const session = await auth();
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     reset?: boolean;
   };
 
-  const site = body.site?.toUpperCase() as Source | undefined;
+  const site = body.site?.toUpperCase() as AdapterSource | undefined;
   const maxPages = body.maxPages ?? 40; // lote curto para caber no tempo da função
 
   try {

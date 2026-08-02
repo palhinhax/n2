@@ -1,5 +1,6 @@
 import { prisma } from "../../lib/prisma";
 import type { Listing } from "./types";
+import { isBackupListingSource } from "./types";
 
 /** Chave de deduplicação: mesmo carro em fontes diferentes tende a ter
  * marca+modelo+ano+km idênticos. Devolve null se faltar informação-chave. */
@@ -31,12 +32,18 @@ export async function dedupeListings(): Promise<{
 }> {
   const rows = await prisma.scrapedListing.findMany({
     where: { active: true, dedupeKey: { not: null } },
-    select: { id: true, dedupeKey: true, price: true, imageUrls: true },
+    select: {
+      id: true,
+      source: true,
+      dedupeKey: true,
+      price: true,
+      imageUrls: true,
+    },
   });
 
   const groups = new Map<
     string,
-    { id: string; price: number | null; imgs: number }[]
+    { id: string; source: string; price: number | null; imgs: number }[]
   >();
   for (const r of rows) {
     const key = r.dedupeKey as string;
@@ -47,7 +54,7 @@ export async function dedupeListings(): Promise<{
       imgs = 0;
     }
     const arr = groups.get(key) ?? [];
-    arr.push({ id: r.id, price: r.price, imgs });
+    arr.push({ id: r.id, source: r.source, price: r.price, imgs });
     groups.set(key, arr);
   }
 
@@ -57,6 +64,9 @@ export async function dedupeListings(): Promise<{
     if (arr.length < 2) continue;
     dupGroups++;
     arr.sort((a, b) => {
+      const backupA = isBackupListingSource(a.source) ? 1 : 0;
+      const backupB = isBackupListingSource(b.source) ? 1 : 0;
+      if (backupA !== backupB) return backupA - backupB; // primary source wins
       const pa = a.price ?? Number.MAX_SAFE_INTEGER;
       const pb = b.price ?? Number.MAX_SAFE_INTEGER;
       if (pa !== pb) return pa - pb; // mantém o mais barato

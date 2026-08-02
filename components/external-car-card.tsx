@@ -10,6 +10,10 @@ export const SOURCE_LABEL: Record<string, string> = {
   STANDVIRTUAL: "Standvirtual",
   PISCAPISCA: "Pisca Pisca",
   AUTOSAPO: "Auto SAPO",
+  API_OLX: "OLX",
+  API_STANDVIRTUAL: "Standvirtual",
+  API_PISCAPISCA: "Pisca Pisca",
+  API_AUTOSAPO: "Auto SAPO",
 };
 
 export default function ExternalCarCard({ listing }: { listing: any }) {

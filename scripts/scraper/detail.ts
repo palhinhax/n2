@@ -1,6 +1,7 @@
 import { fetchText } from "./http";
 import { findDeep, intFrom, stripTags } from "./parse";
-import type { Source } from "./types";
+import type { PortalSource, Source } from "./types";
+import { primarySourceForBackup } from "./types";
 
 /**
  * Enriquecimento: vai à página de detalhe do anúncio na origem e extrai
@@ -565,16 +566,38 @@ function piscapiscaDetail(html: string): ListingDetail {
 
 // ---------------------------------------------------------------------------
 
+function sourceFromUrl(url: string): PortalSource | null {
+  try {
+    const host = new URL(url).host.toLowerCase();
+    if (host.includes("olx.")) return "OLX";
+    if (host.includes("standvirtual.")) return "STANDVIRTUAL";
+    if (host.includes("piscapisca.")) return "PISCAPISCA";
+    if (host.includes("auto.sapo.")) return "AUTOSAPO";
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function detailSource(source: Source | string, url: string): PortalSource {
+  return (
+    primarySourceForBackup(source) ??
+    sourceFromUrl(url) ??
+    (source as PortalSource)
+  );
+}
+
 export async function fetchListingDetail(
-  source: Source,
+  source: Source | string,
   url: string
 ): Promise<ListingDetail> {
+  const canonicalSource = detailSource(source, url);
   try {
     const html = await fetchText(url);
-    if (source === "PISCAPISCA") return piscapiscaDetail(html);
+    if (canonicalSource === "PISCAPISCA") return piscapiscaDetail(html);
     return nextDataDetail(html); // OLX + Standvirtual
   } catch (err) {
-    console.error(`[detail:${source}] falha em ${url}:`, err);
+    console.error(`[detail:${canonicalSource}] falha em ${url}:`, err);
     return EMPTY;
   }
 }

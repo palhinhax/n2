@@ -9,6 +9,7 @@ const SITES = [
   { key: "OLX", label: "OLX" },
   { key: "PISCAPISCA", label: "Pisca Pisca" },
   { key: "AUTOSAPO", label: "Auto SAPO" },
+  { key: "CARROS_API", label: "API Carros PT (backup)" },
 ];
 
 const COMMANDS: [string, string][] = [
@@ -23,6 +24,7 @@ const COMMANDS: [string, string][] = [
     "Scraping — teste rápido (3 páginas)",
     "npx tsx scripts/scraper/run.ts --site STANDVIRTUAL --max-pages 3",
   ],
+  ["Scraping - API backup", "npx tsx scripts/scraper/run.ts --site CARROS_API"],
   ["Recomeçar o ciclo do zero", "npx tsx scripts/scraper/run.ts --reset"],
   ["Ver a base de dados", "npx prisma studio"],
 ];

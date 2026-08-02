@@ -3,15 +3,17 @@ import { olx } from "./sites/olx";
 import { piscapisca } from "./sites/piscapisca";
 import { standvirtual } from "./sites/standvirtual";
 import { autosapo } from "./sites/autosapo";
+import { carrosApi } from "./sites/carros-api";
 import { deactivateStale, getState, setState, upsertListing } from "./store";
 import { dedupeListings } from "./dedupe";
-import type { SiteAdapter, Source } from "./types";
+import type { AdapterSource, SiteAdapter } from "./types";
 
 export const ADAPTERS: SiteAdapter[] = [
   standvirtual,
   piscapisca,
   olx,
   autosapo,
+  carrosApi,
 ];
 
 export const SCRAPE_INTERVAL_DAYS = Number(
@@ -38,7 +40,7 @@ interface SourceState {
 const MAX_FAIL_STREAK = 3;
 
 export interface RunOptions {
-  sources?: Source[]; // default: todas
+  sources?: AdapterSource[]; // default: todas
   maxPages?: number; // nº máx. de páginas nesta invocação (todas as fontes somadas)
   deadline?: number; // Date.now() limite (para serverless)
   reset?: boolean; // recomeça o ciclo do zero
@@ -58,7 +60,7 @@ export interface RunSummary {
 }
 
 const CYCLE_KEY = "cycle";
-const sourceKey = (s: Source) => `source:${s}`;
+const sourceKey = (s: AdapterSource) => `source:${s}`;
 
 export async function runScrape(opts: RunOptions = {}): Promise<RunSummary> {
   const deadline = opts.deadline ?? Number.POSITIVE_INFINITY;

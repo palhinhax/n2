@@ -2,13 +2,13 @@
  * CLI do scraper.
  *
  *   npm run scrape                        # ciclo completo (todas as fontes)
- *   npm run scrape -- --site OLX          # só uma fonte (OLX | STANDVIRTUAL | PISCAPISCA)
+ *   npm run scrape -- --site OLX          # só uma fonte (OLX | STANDVIRTUAL | PISCAPISCA | AUTOSAPO | CARROS_API)
  *   npm run scrape -- --max-pages 5       # teste rápido: 5 páginas
  *   npm run scrape -- --reset             # recomeça o ciclo do zero
  */
 import { runScrape } from "./engine";
 import { dedupeListings } from "./dedupe";
-import type { Source } from "./types";
+import type { AdapterSource } from "./types";
 
 function arg(name: string): string | undefined {
   const idx = process.argv.indexOf(`--${name}`);
@@ -16,7 +16,7 @@ function arg(name: string): string | undefined {
 }
 
 async function main() {
-  const site = arg("site")?.toUpperCase() as Source | undefined;
+  const site = arg("site")?.toUpperCase() as AdapterSource | undefined;
   const maxPages = arg("max-pages") ? Number(arg("max-pages")) : undefined;
   const reset = process.argv.includes("--reset");
 

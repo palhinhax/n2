@@ -161,7 +161,13 @@ export async function fetchText(url: string): Promise<string> {
   }
 }
 
-export async function fetchJson<T = unknown>(url: string): Promise<T> {
-  const res = await fetchRaw(url, { Accept: "application/json" });
+export async function fetchJson<T = unknown>(
+  url: string,
+  extraHeaders: Record<string, string> = {}
+): Promise<T> {
+  const res = await fetchRaw(url, {
+    Accept: "application/json",
+    ...extraHeaders,
+  });
   return (await res.json()) as T;
 }

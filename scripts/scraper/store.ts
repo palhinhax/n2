@@ -4,6 +4,7 @@ import { ensureBrandModel } from "./brands";
 import { dedupeKeyFor } from "./dedupe";
 import { normalizeVehicle } from "../../lib/vehicle-normalize";
 import { assessListingQuality } from "../../lib/listing-quality";
+import { primarySourceForBackup } from "./types";
 
 export async function upsertListing(
   l: Listing
@@ -24,6 +25,7 @@ export async function upsertListing(
     // não bloqueia o scraping se falhar o registo da marca
   }
 
+  const dedupeKey = dedupeKeyFor(l);
   const data: Record<string, unknown> = {
     url: l.url,
     title: nv.title,
@@ -42,7 +44,7 @@ export async function upsertListing(
     sellerType: l.sellerType ?? null,
     sellerName: l.sellerName ?? null,
     imageUrls: JSON.stringify(l.imageUrls ?? []),
-    dedupeKey: dedupeKeyFor(l),
+    dedupeKey,
     active: true,
     lastSeenAt: now,
   };
@@ -57,14 +59,42 @@ export async function upsertListing(
   data.suspicious = quality.suspicious;
   data.suspiciousReasons = JSON.stringify(quality.reasons);
 
+  // A API externa e uma fonte de backup. Se houver uma copia equivalente dos
+  // nossos scrapers, a copia API fica guardada mas escondida da listagem.
+  const backupPrimary = primarySourceForBackup(l.source);
+  if (backupPrimary) {
+    const primaryDuplicate = await prisma.scrapedListing.findFirst({
+      where: {
+        active: true,
+        suspicious: false,
+        OR: [
+          { source: backupPrimary, externalId: l.externalId },
+          ...(dedupeKey
+            ? [
+                {
+                  dedupeKey,
+                  NOT: { source: { startsWith: "API_" } },
+                },
+              ]
+            : []),
+        ],
+      },
+      select: { id: true },
+    });
+    data.isDuplicate = !!primaryDuplicate;
+  }
+
   const existing = await prisma.scrapedListing.findUnique({
     where: {
       source_externalId: { source: l.source, externalId: l.externalId },
     },
-    select: { id: true, price: true },
+    select: { id: true, price: true, description: true },
   });
 
   if (existing) {
+    if (l.description != null && !existing.description) {
+      data.description = l.description;
+    }
     // deteta descida/subida de preço para o histórico
     const newPrice = l.price ?? null;
     if (
@@ -86,6 +116,8 @@ export async function upsertListing(
     data: {
       source: l.source,
       externalId: l.externalId,
+      firstSeenAt: l.firstSeenAt ?? now,
+      description: l.description ?? undefined,
       ...(data as any),
     },
   });
