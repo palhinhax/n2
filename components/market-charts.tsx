@@ -41,6 +41,7 @@ export function TrendChart({
   id,
   points,
   color = CHART.clay,
+  width = 760,
   height = 240,
   area = true,
   unit = "median",
@@ -48,14 +49,21 @@ export function TrendChart({
   id: string; // ids únicos para os gradientes
   points: { label: string; value: number; sub?: string }[];
   color?: string;
+  /** largura do viewBox — usa ~a largura real do contentor para o texto
+   *  não encolher (760 a toda a largura, ~480 em meia coluna) */
+  width?: number;
   height?: number;
   area?: boolean;
   unit?: "median" | "count";
 }) {
   if (points.length === 0) return null;
-  const W = 760;
+  const W = width;
   const H = height;
-  const P = { l: 14, r: 14, t: 34, b: 30 };
+  // margens laterais generosas: as etiquetas dos pontos extremos são
+  // centradas no ponto e saíam do viewBox (ficavam cortadas)
+  const P = { l: 48, r: 48, t: 34, b: 30 };
+  // posição de texto presa dentro do viewBox
+  const clampX = (v: number) => Math.min(Math.max(v, 44), W - 44);
   const vs = points.map((p) => p.value);
   const lo = Math.min(...vs);
   const hi = Math.max(...vs);
@@ -137,7 +145,7 @@ export function TrendChart({
           />
           {labelled.has(i) && (
             <text
-              x={x(i)}
+              x={clampX(x(i))}
               y={y(p.value) - 14}
               textAnchor="middle"
               fontSize="15"
@@ -148,7 +156,7 @@ export function TrendChart({
             </text>
           )}
           <text
-            x={x(i)}
+            x={clampX(x(i))}
             y={H - 8}
             textAnchor="middle"
             fontSize="13"

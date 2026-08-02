@@ -220,7 +220,8 @@ export default async function IndicePrecos() {
                   <TrendChart
                     id="anos"
                     color={CHART.teal}
-                    height={230}
+                    width={480}
+                    height={300}
                     points={idx.yearCurve.map((y) => ({
                       label: String(y.year).slice(2),
                       value: y.median,
