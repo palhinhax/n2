@@ -43,12 +43,13 @@ export default async function Admin() {
       prisma.car.count(),
       prisma.car.count({ where: { forSale: true, status: "APPROVED" } }),
       prisma.offer.count(),
+      prisma.offer.count({ where: { status: "PENDING" } }),
       prisma.car.count({
         where: { featured: true, forSale: true, status: "APPROVED" },
       }),
     ]),
   ]);
-  const [nUsers, nCars, nLive, nOffers, nFeatured] = counts;
+  const [nUsers, nCars, nLive, nOffers, nOffersPending, nFeatured] = counts;
 
   // estatísticas do scraping (por fonte + detalhes enriquecidos)
   const [nExtActive, nEnriched, bySource] = await Promise.all([
@@ -86,6 +87,15 @@ export default async function Admin() {
         <div className="mb-6 flex flex-wrap gap-2">
           <Link href="/admin/financiamento" className="btn-line btn-sm">
             💶 Pedidos de financiamento →
+          </Link>
+          <Link href="/admin/propostas" className="btn-line btn-sm">
+            🤝 Propostas aos vendedores
+            {nOffersPending > 0 && (
+              <span className="ml-1 rounded-full bg-clay px-1.5 text-[0.72rem] font-bold text-white">
+                {nOffersPending}
+              </span>
+            )}{" "}
+            →
           </Link>
           <Link href="/admin/instagram" className="btn-line btn-sm">
             📸 Posts para Instagram →
