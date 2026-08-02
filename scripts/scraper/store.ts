@@ -24,6 +24,8 @@ export async function upsertListing(
     // não bloqueia o scraping se falhar o registo da marca
   }
 
+  const origin = l.origin ?? "scraper";
+
   const data: Record<string, unknown> = {
     url: l.url,
     title: nv.title,
@@ -44,8 +46,11 @@ export async function upsertListing(
     imageUrls: JSON.stringify(l.imageUrls ?? []),
     dedupeKey: dedupeKeyFor(l),
     active: true,
+    origin,
     lastSeenAt: now,
   };
+  // não apagar uma descrição enriquecida com um null vindo da listagem
+  if (l.description != null) data.description = l.description;
 
   // qualidade de dados: km/ano/preço implausíveis ou anúncio de peças → suspeito
   const quality = assessListingQuality({
@@ -57,12 +62,29 @@ export async function upsertListing(
   data.suspicious = quality.suspicious;
   data.suspiciousReasons = JSON.stringify(quality.reasons);
 
-  const existing = await prisma.scrapedListing.findUnique({
+  let existing = await prisma.scrapedListing.findUnique({
     where: {
       source_externalId: { source: l.source, externalId: l.externalId },
     },
-    select: { id: true, price: true },
+    select: { id: true, price: true, origin: true },
   });
+
+  // a API de backup pode usar outro formato de id — tenta casar pelo URL
+  // antes de criar um duplicado do mesmo anúncio (nos dois sentidos: API a
+  // encontrar um registo nosso, ou o scraper a reclamar um registo da API)
+  if (!existing) {
+    existing = await prisma.scrapedListing.findFirst({
+      where: { url: l.url },
+      select: { id: true, price: true, origin: true },
+    });
+    // ao reclamar um registo da API, o anúncio passa a usar o nosso id
+    if (existing && origin === "scraper") data.externalId = l.externalId;
+  }
+
+  // um anúncio apanhado pelo nosso scraper nunca é tocado pela API de backup
+  if (existing && origin === "api" && existing.origin === "scraper") {
+    return "updated";
+  }
 
   if (existing) {
     // deteta descida/subida de preço para o histórico

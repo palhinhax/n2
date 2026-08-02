@@ -251,6 +251,7 @@ model ScrapedListing {
   sellerName  String?
   imageUrls   String   @default("[]") // JSON array de URLs (hotlink CDN de origem)
   active      Boolean  @default(true) // false = deixou de aparecer no site
+  origin      String   @default("scraper") // scraper (nosso) | api (backup externo)
   firstSeenAt DateTime @default(now())
   lastSeenAt  DateTime @default(now())
 
@@ -292,6 +293,7 @@ model ScrapedListing {
   @@index([dedupeKey])
   @@index([active, isDuplicate])
   @@index([active, isDuplicate, suspicious])
+  @@index([url])
 }
 
 // Ponto do histórico de preço de um anúncio (do site OU externo).

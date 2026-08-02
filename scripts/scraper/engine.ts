@@ -3,20 +3,28 @@ import { olx } from "./sites/olx";
 import { piscapisca } from "./sites/piscapisca";
 import { standvirtual } from "./sites/standvirtual";
 import { autosapo } from "./sites/autosapo";
+import { backupApi } from "./sites/backup-api";
 import { deactivateStale, getState, setState, upsertListing } from "./store";
 import { dedupeListings } from "./dedupe";
-import type { SiteAdapter, Source } from "./types";
+import type { AdapterName, SiteAdapter } from "./types";
 
 export const ADAPTERS: SiteAdapter[] = [
   standvirtual,
   piscapisca,
   olx,
   autosapo,
+  backupApi, // fonte secundária: nunca sobrepõe dados das fontes próprias
 ];
 
-export const SCRAPE_INTERVAL_DAYS = Number(
-  process.env.SCRAPE_INTERVAL_DAYS ?? 3
-);
+/** Pausa entre ciclos completos, em horas. `SCRAPE_INTERVAL_DAYS` continua a
+ * ser aceite (em dias) para não partir configs antigas. */
+export const SCRAPE_INTERVAL_HOURS = (() => {
+  if (process.env.SCRAPE_INTERVAL_HOURS != null)
+    return Number(process.env.SCRAPE_INTERVAL_HOURS);
+  if (process.env.SCRAPE_INTERVAL_DAYS != null)
+    return Number(process.env.SCRAPE_INTERVAL_DAYS) * 24;
+  return 2;
+})();
 
 interface CycleState {
   startedAt: string | null; // ciclo em curso
@@ -38,7 +46,7 @@ interface SourceState {
 const MAX_FAIL_STREAK = 3;
 
 export interface RunOptions {
-  sources?: Source[]; // default: todas
+  sources?: AdapterName[]; // default: todas
   maxPages?: number; // nº máx. de páginas nesta invocação (todas as fontes somadas)
   deadline?: number; // Date.now() limite (para serverless)
   reset?: boolean; // recomeça o ciclo do zero
@@ -58,7 +66,7 @@ export interface RunSummary {
 }
 
 const CYCLE_KEY = "cycle";
-const sourceKey = (s: Source) => `source:${s}`;
+const sourceKey = (s: AdapterName) => `source:${s}`;
 
 export async function runScrape(opts: RunOptions = {}): Promise<RunSummary> {
   const deadline = opts.deadline ?? Number.POSITIVE_INFINITY;
@@ -87,10 +95,10 @@ export async function runScrape(opts: RunOptions = {}): Promise<RunSummary> {
     for (const a of ADAPTERS) await setState(sourceKey(a.name), null);
   }
 
-  // ciclo anterior terminou há menos de SCRAPE_INTERVAL_DAYS? então não faz nada
+  // ciclo anterior terminou há menos de SCRAPE_INTERVAL_HOURS? então não faz nada
   if (!cycle.startedAt && cycle.finishedAt) {
     const ageMs = Date.now() - new Date(cycle.finishedAt).getTime();
-    if (ageMs < SCRAPE_INTERVAL_DAYS * 24 * 60 * 60 * 1000 && !opts.reset) {
+    if (ageMs < SCRAPE_INTERVAL_HOURS * 60 * 60 * 1000 && !opts.reset) {
       summary.skipped = true;
       return summary;
     }
@@ -107,7 +115,10 @@ export async function runScrape(opts: RunOptions = {}): Promise<RunSummary> {
     console.log(`[ciclo] novo ciclo iniciado em ${cycle.startedAt}`);
   }
 
-  for (const adapter of adapters) {
+  // As fontes correm em PARALELO — são hosts diferentes, por isso o delay
+  // educado continua a ser respeitado por site. O orçamento de páginas
+  // (maxPages) é global e partilhado através do contador em `summary.pages`.
+  const runAdapter = async (adapter: SiteAdapter): Promise<SourceState> => {
     const key = sourceKey(adapter.name);
     // merge com defaults (um estado guardado como {} não deve dar NaN)
     const loaded = (await getState<Partial<SourceState>>(key)) ?? {};
@@ -125,6 +136,7 @@ export async function runScrape(opts: RunOptions = {}): Promise<RunSummary> {
       summary.pages < maxPages &&
       Date.now() < deadline
     ) {
+      summary.pages++; // reserva já a página no orçamento global
       try {
         const result = await adapter.scrapePage(state.cursor ?? undefined);
         for (const item of result.items) {
@@ -135,7 +147,6 @@ export async function runScrape(opts: RunOptions = {}): Promise<RunSummary> {
         state.cursor = result.nextCursor;
         state.pagesDone++;
         state.failStreak = 0;
-        summary.pages++;
         console.log(
           `[${adapter.name}] página ${state.pagesDone} — ${result.items.length} anúncios ` +
             `(total: ${state.created} novos, ${state.updated} atualizados)`
@@ -161,10 +172,15 @@ export async function runScrape(opts: RunOptions = {}): Promise<RunSummary> {
           );
         }
         await setState(key, state);
-        break; // passa à fonte seguinte; retoma na próxima invocação
+        break; // retoma na próxima invocação
       }
     }
+    return state;
+  };
 
+  const states = await Promise.all(adapters.map(runAdapter));
+  adapters.forEach((adapter, i) => {
+    const state = states[i];
     summary.perSource[adapter.name] = {
       pagesDone: state.pagesDone,
       created: state.created,
@@ -173,7 +189,7 @@ export async function runScrape(opts: RunOptions = {}): Promise<RunSummary> {
     };
     summary.created += state.created;
     summary.updated += state.updated;
-  }
+  });
 
   // todas as fontes (do universo completo, não só as selecionadas) terminaram?
   const allStates = await Promise.all(

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { fetchListingDetail } from "../scripts/scraper/detail";
+import { fetchDetailFromBackupApi } from "../scripts/scraper/sites/backup-api";
 
 // re-enriquecer se os detalhes tiverem mais de N dias
 const STALE_DAYS = 7;
@@ -7,11 +8,13 @@ const STALE_DAYS = 7;
 /**
  * Garante que um anúncio externo tem os detalhes (descrição, equipamento, etc.)
  * preenchidos. Vai buscar à origem apenas na primeira visita (ou se ficarem
- * velhos), guardando em cache na BD. Devolve o registo atualizado.
+ * velhos), guardando em cache na BD; se a origem falhar (ex.: bloqueio
+ * anti-bot), tenta a API de backup. Devolve o registo atualizado.
  */
 export async function ensureListingDetail(listing: {
   id: string;
   source: string;
+  externalId: string;
   url: string;
   detailsFetchedAt: Date | null;
   imageUrls: string;
@@ -31,18 +34,27 @@ export async function ensureListingDetail(listing: {
       STALE_DAYS * 24 * 60 * 60 * 1000;
   if (fresh) return null;
 
-  const detail = await fetchListingDetail(listing.source as any, listing.url);
+  let detail = await fetchListingDetail(listing.source as any, listing.url);
 
   // fetch falhou ou página vazia/bloqueada → não escrevas nada por cima dos
   // dados que já temos; sem detailsFetchedAt, a próxima visita tenta de novo.
-  const gotSomething =
-    detail.description != null ||
-    detail.imageUrls.length > 0 ||
-    detail.km != null ||
-    detail.year != null ||
-    detail.gearbox != null ||
-    detail.fuel != null;
-  if (!gotSomething) return null;
+  const hasContent = (d: typeof detail) =>
+    d.description != null ||
+    d.imageUrls.length > 0 ||
+    d.km != null ||
+    d.year != null ||
+    d.gearbox != null ||
+    d.fuel != null;
+
+  // origem inacessível (ex.: Cloudflare) → tenta a API de backup
+  if (!hasContent(detail)) {
+    const fromApi = await fetchDetailFromBackupApi(listing.source as any, {
+      url: listing.url,
+      externalId: listing.externalId,
+    });
+    if (fromApi && hasContent(fromApi)) detail = fromApi;
+  }
+  if (!hasContent(detail)) return null;
 
   // junta as fotos da galeria completa às que já tínhamos, sem duplicar
   let existingImgs: string[] = [];

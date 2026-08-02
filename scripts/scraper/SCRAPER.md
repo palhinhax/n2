@@ -1,12 +1,15 @@
-# Scraper de carros — OLX, Standvirtual, Piscapisca
+# Scraper de carros — OLX, Standvirtual, Piscapisca, Auto SAPO
 
-Guarda anúncios de carros dos 3 sites na tabela `ScrapedListing` (com link para o anúncio original e URLs das imagens em hotlink — não descarregamos ficheiros). Corre um ciclo completo a cada 3 dias.
+Guarda anúncios de carros dos 4 sites na tabela `ScrapedListing` (com link para o anúncio original e URLs das imagens em hotlink — não descarregamos ficheiros). Os ciclos correm de forma quase contínua: assim que um ciclo completo termina, o seguinte arranca `SCRAPE_INTERVAL_HOURS` (default 2) depois.
 
 ## Como funciona
 
-- **Standvirtual** — lê o JSON `__NEXT_DATA__` embebido nas páginas de listagem (SSR). ~32 anúncios/página.
-- **Piscapisca** — HTML server-side, percorrido marca a marca para contornar o limite de paginação.
-- **OLX** — API JSON interna do site; como o offset está limitado a ~1000 resultados, o universo é dividido automaticamente em bandas de preço.
+- **Standvirtual** — lê o JSON `__NEXT_DATA__` embebido nas páginas de listagem (SSR). ~32 anúncios/página; a paginação da listagem geral chega ao inventário todo.
+- **Piscapisca** — TransferState do Angular (SSR), percorrido marca a marca para contornar o limite de paginação.
+- **OLX** — HTML server-side. As marcas são descobertas dinamicamente na página da categoria (apanha slugs não óbvios como `volkswagen-vw` e marcas novas); como o OLX trunca cada pesquisa a ~1000 resultados, marcas grandes são subdivididas automaticamente por distrito.
+- **Auto SAPO** — HTML server-side; a paginação da listagem geral chega ao inventário todo.
+- **API de backup** (`sites/backup-api.ts`) — 5.ª "fonte": a API Carros PT (n2-py-scraper no Railway) agrega os mesmos 4 portais e serve para apanhar anúncios que nos escapem. Os itens entram com `origin: "api"` e **nunca sobrepõem dados apanhados por nós**: um registo nosso não é tocado pela API; se o nosso scraper apanhar um anúncio que veio da API, reclama-o (origin passa a "scraper"); no dedupe, a cópia da API é escondida. O matching é por `(source, externalId)` com fallback por URL. Também dá detalhe on-demand (`POST /listings/detail`, requer `BACKUP_API_KEY`) como fallback do `detail.ts` quando a origem bloqueia (ex.: Cloudflare do PiscaPisca); para OLX só funciona com id interno numérico (anúncios vindos da própria API).
+- As fontes correm **em paralelo** (hosts diferentes; o delay educado é respeitado por site).
 - O progresso (cursor por fonte) fica em `ScrapeState`, por isso o scraping pode ser interrompido e retomado — essencial para correr na Vercel por lotes.
 - No fim de cada ciclo, anúncios que desapareceram dos sites ficam `active = false` (nunca são apagados).
 
@@ -25,11 +28,11 @@ npm run scrape
 
 Flags: `--site OLX|STANDVIRTUAL|PISCAPISCA`, `--max-pages N`, `--reset` (recomeça o ciclo).
 
-Env vars opcionais: `SCRAPE_DELAY_MS` (default 700 — não baixes muito, é o que evita bloqueios), `SCRAPE_INTERVAL_DAYS` (default 3).
+Env vars opcionais: `SCRAPE_DELAY_MS` (default 700 — não baixes muito, é o que evita bloqueios), `SCRAPE_INTERVAL_HOURS` (default 2; `SCRAPE_INTERVAL_DAYS` antigo ainda é aceite), `SCRAPE_BATCH_PAGES` (default 600), `BACKUP_API_URL` / `BACKUP_API_KEY` (API de backup; a chave só é precisa para o detalhe on-demand).
 
 ## Vercel (agendamento)
 
-O `vercel.json` agenda `/api/cron/scrape` de 2 em 2 horas. Cada invocação processa um lote de páginas (`SCRAPE_BATCH_PAGES`, default 120) e sai; quando o ciclo termina, as invocações seguintes não fazem nada até passarem 3 dias. Necessário:
+O `vercel.json` agenda `/api/cron/scrape` a cada 15 minutos. Cada invocação processa um lote de páginas (`SCRAPE_BATCH_PAGES`, default 600 — na prática o limite é o `maxDuration`) e sai; quando o ciclo termina, as invocações seguintes não fazem nada até passarem `SCRAPE_INTERVAL_HOURS`. Necessário:
 
 1. **Postgres** (Neon/Vercel Postgres) — o SQLite não funciona na Vercel. Muda o `provider` no `schema.prisma` para `postgresql` e define `DATABASE_URL`.
 2. **`CRON_SECRET`** nas env vars do projeto — a Vercel envia-o automaticamente nos pedidos do cron.

@@ -250,7 +250,8 @@ scraping.
 - `B2_ENDPOINT`, `B2_REGION`, `B2_KEY_ID`, `B2_APP_KEY`, `B2_BUCKET`,
   `B2_PUBLIC_URL` — Backblaze B2.
 - `CRON_SECRET` — protege as rotas de cron (scraping e alertas).
-- `SCRAPE_DELAY_MS`, `SCRAPE_INTERVAL_DAYS`, `SCRAPE_BATCH_PAGES` — scraping.
+- `SCRAPE_DELAY_MS`, `SCRAPE_INTERVAL_HOURS` (antigo `SCRAPE_INTERVAL_DAYS`
+  ainda aceite), `SCRAPE_BATCH_PAGES` — scraping.
 - `OPENAI_API_KEY`, `OPENAI_MODEL` — funcionalidades de IA (chat, avaliação,
   descrição de anúncio, relatório de modelo).
 - `RESEND_API_KEY`, `EMAIL_FROM` — emails de alerta (opcional; sem key, os
