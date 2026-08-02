@@ -4,25 +4,25 @@ import { ensureBrandModel } from "./brands";
 import { dedupeKeyFor } from "./dedupe";
 import { normalizeVehicle } from "../../lib/vehicle-normalize";
 import { assessListingQuality } from "../../lib/listing-quality";
-import { primarySourceForBackup } from "./types";
+import { isBackupListingSource, primarySourceForBackup } from "./types";
 
 export async function upsertListing(
   l: Listing
 ): Promise<"created" | "updated"> {
   const now = new Date();
+  const origin =
+    l.origin ?? (isBackupListingSource(l.source) ? "api" : "scraper");
 
-  // normaliza marca/modelo/versão e gera um título limpo
   const nv = normalizeVehicle({
     brand: l.brand,
     model: l.model,
     title: l.title,
   });
 
-  // regista marca/modelo novos na tabela oficial (com normalização)
   try {
     await ensureBrandModel(nv.brand ?? l.brand, l.model ?? l.title);
   } catch {
-    // não bloqueia o scraping se falhar o registo da marca
+    // Nao bloqueia o scraping se falhar o registo da marca.
   }
 
   const dedupeKey = dedupeKeyFor(l);
@@ -46,21 +46,19 @@ export async function upsertListing(
     imageUrls: JSON.stringify(l.imageUrls ?? []),
     dedupeKey,
     active: true,
+    origin,
     lastSeenAt: now,
   };
 
-  // qualidade de dados: km/ano/preço implausíveis ou anúncio de peças → suspeito
   const quality = assessListingQuality({
     km: l.km ?? null,
     year: l.year ?? null,
     price: l.price ?? null,
-    title: l.title, // título original: é onde "para peças"/"salvado" aparece
+    title: l.title,
   });
   data.suspicious = quality.suspicious;
   data.suspiciousReasons = JSON.stringify(quality.reasons);
 
-  // A API externa e uma fonte de backup. Se houver uma copia equivalente dos
-  // nossos scrapers, a copia API fica guardada mas escondida da listagem.
   const backupPrimary = primarySourceForBackup(l.source);
   if (backupPrimary) {
     const primaryDuplicate = await prisma.scrapedListing.findFirst({
@@ -84,18 +82,34 @@ export async function upsertListing(
     data.isDuplicate = !!primaryDuplicate;
   }
 
-  const existing = await prisma.scrapedListing.findUnique({
+  let existing = await prisma.scrapedListing.findUnique({
     where: {
       source_externalId: { source: l.source, externalId: l.externalId },
     },
-    select: { id: true, price: true, description: true },
+    select: { id: true, price: true, description: true, origin: true },
   });
+
+  if (!existing) {
+    existing = await prisma.scrapedListing.findFirst({
+      where: { url: l.url },
+      select: { id: true, price: true, description: true, origin: true },
+    });
+    if (existing && origin === "scraper") {
+      data.source = l.source;
+      data.externalId = l.externalId;
+    }
+  }
+
+  // A API de backup nunca rebaixa nem sobrescreve um registo recolhido por nos.
+  if (existing && origin === "api" && existing.origin === "scraper") {
+    return "updated";
+  }
 
   if (existing) {
     if (l.description != null && !existing.description) {
       data.description = l.description;
     }
-    // deteta descida/subida de preço para o histórico
+
     const newPrice = l.price ?? null;
     if (
       existing.price != null &&
@@ -104,14 +118,15 @@ export async function upsertListing(
     ) {
       data.previousPrice = existing.price;
       data.priceChangedAt = now;
-      // ponto no histórico completo de preços
       await prisma.pricePoint
         .create({ data: { listingId: existing.id, price: newPrice } })
         .catch(() => {});
     }
+
     await prisma.scrapedListing.update({ where: { id: existing.id }, data });
     return "updated";
   }
+
   const created = await prisma.scrapedListing.create({
     data: {
       source: l.source,
@@ -121,7 +136,7 @@ export async function upsertListing(
       ...(data as any),
     },
   });
-  // primeiro ponto do histórico de preços
+
   if (l.price != null) {
     await prisma.pricePoint
       .create({ data: { listingId: created.id, price: l.price } })
@@ -141,7 +156,6 @@ export async function getState<T>(id: string): Promise<T | null> {
 }
 
 export async function setState(id: string, data: unknown): Promise<void> {
-  // preserva null (reset limpa o estado); só undefined vira {}
   const json = JSON.stringify(data === undefined ? {} : data);
   await prisma.scrapeState.upsert({
     where: { id },
@@ -150,7 +164,7 @@ export async function setState(id: string, data: unknown): Promise<void> {
   });
 }
 
-/** Desativa anúncios que não foram vistos neste ciclo (desapareceram do site). */
+/** Desativa anuncios que nao foram vistos neste ciclo. */
 export async function deactivateStale(cycleStartedAt: Date): Promise<number> {
   const res = await prisma.scrapedListing.updateMany({
     where: { active: true, lastSeenAt: { lt: cycleStartedAt } },
