@@ -15,6 +15,7 @@ const KIND_ICON: Record<string, string> = {
   OFFER_REJECTED: "✕",
   DEAL_RADAR: "🎯",
   INDEX_POST: "📈",
+  ADMIN_MESSAGE: "✉️",
 };
 
 export default async function Notificacoes() {
@@ -41,8 +42,8 @@ export default async function Notificacoes() {
           🔔 Notificações
         </h1>
         <p className="mb-5 text-n2muted">
-          Ofertas nos teus anúncios, descidas de preço nos favoritos e carros
-          novos nas tuas pesquisas.
+          Mensagens da equipa, ofertas nos teus anúncios, descidas de preço nos
+          favoritos e carros novos nas tuas pesquisas.
         </p>
 
         {notifications.length === 0 ? (
@@ -72,7 +73,9 @@ export default async function Notificacoes() {
                       {n.title}
                     </p>
                     {n.body && (
-                      <p className="text-[0.88rem] text-n2muted">{n.body}</p>
+                      <p className="whitespace-pre-line text-[0.88rem] text-n2muted">
+                        {n.body}
+                      </p>
                     )}
                     <p className="mt-0.5 text-[0.76rem] text-n2muted2">
                       {n.createdAt.toLocaleDateString("pt-PT")}{" "}

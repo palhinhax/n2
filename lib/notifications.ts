@@ -9,7 +9,8 @@ export type NotificationKind =
   | "OFFER_ACCEPTED"
   | "OFFER_REJECTED"
   | "DEAL_RADAR"
-  | "INDEX_POST"; // lembrete mensal (admins): publicar o índice no Instagram
+  | "INDEX_POST" // lembrete mensal (admins): publicar o índice no Instagram
+  | "ADMIN_MESSAGE"; // mensagem escrita pela equipa para um utilizador
 
 export async function createNotification(opts: {
   userId: string;

@@ -34,21 +34,34 @@ export async function sendEmail(opts: {
 
 const SITE = process.env.NEXTAUTH_URL || "https://nacional-2.pt";
 
+/** Escapa texto livre antes de o interpolar no template HTML. */
+export function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 /** Template simples e consistente com a marca. */
 export function alertEmailHtml(opts: {
   title: string;
   body: string;
   ctaLabel: string;
   ctaPath: string; // caminho interno, ex. /favoritos
+  footer?: string; // nota final (por omissão: alertas)
 }): string {
   const url = `${SITE}${opts.ctaPath}`;
+  const footer =
+    opts.footer ||
+    "Recebes este email porque tens alertas ativos no Nacional 2.";
   return `<!doctype html><html><body style="margin:0;padding:24px;background:#F6F1E7;font-family:Georgia,serif;color:#2B2B26">
   <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;padding:28px;border:1px solid #E3D9C6">
     <p style="margin:0 0 4px;font-size:13px;letter-spacing:1px;color:#8B8574">NACIONAL 2</p>
     <h1 style="margin:0 0 12px;font-size:22px">${opts.title}</h1>
     <p style="margin:0 0 20px;font-size:15px;line-height:1.5">${opts.body}</p>
     <a href="${url}" style="display:inline-block;background:#CE994B;color:#fff;text-decoration:none;padding:10px 20px;border-radius:999px;font-size:15px;font-weight:bold">${opts.ctaLabel}</a>
-    <p style="margin:24px 0 0;font-size:12px;color:#8B8574">Recebes este email porque tens alertas ativos no Nacional 2.</p>
+    <p style="margin:24px 0 0;font-size:12px;color:#8B8574">${footer}</p>
   </div>
 </body></html>`;
 }

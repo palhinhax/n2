@@ -6,11 +6,24 @@ import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import AdminActions from "@/components/admin-actions";
 import FeatureToggle from "@/components/feature-toggle";
+import AdminMessageButton from "@/components/admin-message-button";
 import ScraperAdmin from "@/components/scraper-admin";
 import { fmtEur } from "@/lib/constants";
 import { MAX_FEATURED } from "@/lib/car-listing";
 
 export const dynamic = "force-dynamic";
+
+/** Nº de fotos do anúncio — realça a vermelho quando são poucas. */
+function PhotoCount({ n }: { n: number }) {
+  return (
+    <span
+      className={n < 4 ? "font-semibold text-red-800" : ""}
+      title={n < 4 ? "Poucas fotos — vale a pena pedir mais ao vendedor" : ""}
+    >
+      📷 {n} {n === 1 ? "foto" : "fotos"}
+    </span>
+  );
+}
 
 export default async function Admin() {
   const session = await auth();
@@ -19,13 +32,23 @@ export default async function Admin() {
   const [pending, live, users, counts] = await Promise.all([
     prisma.car.findMany({
       where: { status: "PENDING" },
-      include: { brand: true, model: true, owner: true },
+      include: {
+        brand: true,
+        model: true,
+        owner: true,
+        _count: { select: { photos: true } },
+      },
       orderBy: { updatedAt: "asc" },
     }),
     // anúncios publicados — candidatos a destaque (destacados primeiro)
     prisma.car.findMany({
       where: { status: "APPROVED", forSale: true },
-      include: { brand: true, model: true, owner: true },
+      include: {
+        brand: true,
+        model: true,
+        owner: true,
+        _count: { select: { photos: true } },
+      },
       orderBy: [
         { featured: "desc" },
         { featuredAt: "desc" },
@@ -182,13 +205,19 @@ export default async function Admin() {
                     </b>
                     <div className="text-[0.85rem] text-n2muted">
                       {c.year} · {c.km.toLocaleString("pt-PT")} km · {c.fuel} ·{" "}
-                      {fmtEur(c.price)} · por {c.owner.name} ({c.owner.email})
+                      {fmtEur(c.price)} · por {c.owner.name} ({c.owner.email}) ·{" "}
+                      <PhotoCount n={c._count.photos} />
                     </div>
                   </div>
                   <div className="ml-auto flex items-center gap-2">
                     <Link href={`/carros/${c.id}`} className="btn-line btn-xs">
                       Ver
                     </Link>
+                    <AdminMessageButton
+                      carId={c.id}
+                      to={c.owner.name || c.owner.email}
+                      carLabel={`${c.brand.name} ${c.model.name}`}
+                    />
                     <AdminActions carId={c.id} />
                   </div>
                 </div>
@@ -224,7 +253,8 @@ export default async function Admin() {
                     </b>
                     <div className="text-[0.85rem] text-n2muted">
                       {c.year} · {c.km.toLocaleString("pt-PT")} km · {c.fuel} ·{" "}
-                      {fmtEur(c.price)} · por {c.owner.name}
+                      {fmtEur(c.price)} · por {c.owner.name} ·{" "}
+                      <PhotoCount n={c._count.photos} />
                     </div>
                   </div>
                   <div className="ml-auto flex items-center gap-2">
@@ -237,6 +267,11 @@ export default async function Admin() {
                     >
                       📸 Instagram
                     </Link>
+                    <AdminMessageButton
+                      carId={c.id}
+                      to={c.owner.name || c.owner.email}
+                      carLabel={`${c.brand.name} ${c.model.name}`}
+                    />
                     <FeatureToggle carId={c.id} featured={c.featured} />
                   </div>
                 </div>
@@ -259,6 +294,7 @@ export default async function Admin() {
                   <th className="px-4 py-2">Carros</th>
                   <th className="px-4 py-2">Ofertas</th>
                   <th className="px-4 py-2">Registo</th>
+                  <th className="px-4 py-2"></th>
                 </tr>
               </thead>
               <tbody>
@@ -279,6 +315,12 @@ export default async function Admin() {
                     <td className="px-4 py-2">{u._count.offers}</td>
                     <td className="px-4 py-2 text-n2muted">
                       {u.createdAt.toLocaleDateString("pt-PT")}
+                    </td>
+                    <td className="px-4 py-2">
+                      <AdminMessageButton
+                        userId={u.id}
+                        to={u.name || u.email}
+                      />
                     </td>
                   </tr>
                 ))}
