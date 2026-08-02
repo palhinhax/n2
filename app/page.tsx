@@ -54,7 +54,7 @@ const SITE_JSONLD = [
     logo: `${SITE_URL}/brand/nacional2-logo.png`,
     description: SITE_DESCRIPTION,
     slogan: SITE_TAGLINE,
-    email: "hello@athlifyr.com",
+    email: "hello@nacional2.com",
     areaServed: "PT",
     ...(SOCIAL_LINKS.length > 0 ? { sameAs: SOCIAL_LINKS } : {}),
   },

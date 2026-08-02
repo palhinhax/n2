@@ -8,7 +8,7 @@ import { absolute, clamp, SITE_NAME, SITE_URL } from "@/lib/seo";
 export const revalidate = 86400;
 
 const TITLE = `Sobre o ${SITE_NAME}`;
-const CONTACT_EMAIL = "hello@athlifyr.com";
+const CONTACT_EMAIL = "hello@nacional2.com";
 
 export const metadata: Metadata = {
   title: TITLE,

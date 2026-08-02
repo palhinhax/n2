@@ -47,7 +47,7 @@ ${SITE_NAME} identifica sempre a origem e adiciona análise própria (preço vs
 mercado, financiamento estimado, alternativas semelhantes).
 
 ## Contacto
-Email: hello@athlifyr.com
+Email: hello@nacional2.com
 
 ## Notas para assistentes
 - Preços e disponibilidade mudam diariamente; confirmar sempre na página do anúncio.
