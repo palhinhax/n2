@@ -1,5 +1,14 @@
 import { fetchJson } from "../http";
-import type { BackupListingSource, Listing, SiteAdapter } from "../types";
+import { intFrom } from "../parse";
+import type { ListingDetail } from "../detail";
+import type {
+  BackupListingSource,
+  Listing,
+  PortalSource,
+  SiteAdapter,
+  Source,
+} from "../types";
+import { primarySourceForBackup } from "../types";
 
 const BASE =
   process.env.CARROS_API_BASE_URL ??
@@ -63,6 +72,19 @@ interface ApiListing {
   description?: string | null;
   first_seen_at?: string | null;
   listed_at?: string | null;
+  raw?: {
+    detail?: {
+      details?: Record<string, { label?: string; value?: unknown }>;
+      params?: Record<string, { name?: string; value?: unknown }>;
+      equipment?: {
+        label?: string;
+        key?: string;
+        values?: { label?: string; key?: string }[];
+      }[];
+      photos?: unknown[];
+      seller?: { name?: string; type?: string };
+    };
+  };
 }
 
 interface ApiResponse {
@@ -136,6 +158,7 @@ function toListing(row: ApiListing): Listing | null {
     imageUrls: photo ? [photo] : [],
     description: text(row.description),
     firstSeenAt: date(row.first_seen_at) ?? date(row.listed_at),
+    origin: "api",
   };
 }
 
@@ -176,3 +199,149 @@ export const carrosApi: SiteAdapter = {
     return { items, nextCursor };
   },
 };
+
+function portalSource(
+  source: Source | string,
+  url: string
+): PortalSource | null {
+  const fromBackup = primarySourceForBackup(source);
+  if (fromBackup) return fromBackup;
+  if (
+    source === "OLX" ||
+    source === "STANDVIRTUAL" ||
+    source === "PISCAPISCA" ||
+    source === "AUTOSAPO"
+  ) {
+    return source;
+  }
+  try {
+    const host = new URL(url).host.toLowerCase();
+    if (host.includes("olx.")) return "OLX";
+    if (host.includes("standvirtual.")) return "STANDVIRTUAL";
+    if (host.includes("piscapisca.")) return "PISCAPISCA";
+    if (host.includes("auto.sapo.")) return "AUTOSAPO";
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function normalizeDetailPhoto(u: string): string {
+  return u
+    .replace(/^(https:\/\/[^/:]+):443\//, "$1/")
+    .replace(/;s=\d+x\d+.*$/, ";s=1280x0");
+}
+
+function firstInt(s: string | null): number | null {
+  const m = String(s ?? "").match(/\d+/);
+  return m ? parseInt(m[0], 10) : null;
+}
+
+export async function fetchDetailFromCarrosApi(
+  source: Source | string,
+  listing: { url: string; externalId: string }
+): Promise<ListingDetail | null> {
+  if (!API_KEY) return null;
+
+  const canonicalSource = portalSource(source, listing.url);
+  if (!canonicalSource) return null;
+
+  const body: Record<string, string> = {
+    source: canonicalSource.toLowerCase(),
+  };
+  if (canonicalSource === "OLX") {
+    if (!/^\d+$/.test(listing.externalId)) return null;
+    body.source_id = listing.externalId;
+  } else {
+    body.url = listing.url;
+  }
+
+  let item: ApiListing;
+  try {
+    const res = await fetch(new URL("/listings/detail", BASE), {
+      method: "POST",
+      headers: { "X-API-Key": API_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(25_000),
+    });
+    if (!res.ok) return null;
+    item = (await res.json()) as ApiListing;
+  } catch {
+    return null;
+  }
+
+  const d = item.raw?.detail ?? {};
+  const dict: Record<string, string> = {};
+  for (const [k, v] of Object.entries(d.details ?? d.params ?? {})) {
+    const value = v?.value;
+    if (value != null && String(value).trim()) {
+      dict[k.toLowerCase()] = String(value).trim();
+    }
+  }
+  const dv = (...keys: string[]): string | null => {
+    for (const k of keys) if (dict[k]) return dict[k];
+    return null;
+  };
+
+  const equipment = Array.isArray(d.equipment)
+    ? d.equipment
+        .map((g) => ({
+          group: g?.label ?? g?.key ?? "Equipamento",
+          items: (g?.values ?? [])
+            .map((v) => v?.label ?? v?.key)
+            .filter((x): x is string => Boolean(x)),
+        }))
+        .filter((g) => g.items.length > 0)
+    : [];
+
+  const photos = (Array.isArray(d.photos) ? d.photos : [])
+    .filter((p): p is string => typeof p === "string")
+    .map(normalizeDetailPhoto)
+    .slice(0, 60);
+  const fallbackPhoto = text(item.photo_url);
+  if (photos.length === 0 && fallbackPhoto) photos.push(fallbackPhoto);
+
+  const year = item.year ?? intFrom(dv("year", "ano"));
+  const regMonth = dv("first_registration_month");
+
+  return {
+    description: text(item.description),
+    equipment,
+    color: dv("color", "cor"),
+    doors: firstInt(dv("door_count", "nr_doors", "portas")),
+    seats: intFrom(dv("nr_seats", "lugares")),
+    drivetrain: dv("transmission_type", "wheel_drive", "traccao"),
+    bodyType: dv("body_type", "segmento"),
+    condition: dv("new_used", "condicao", "condition"),
+    registrationDate:
+      dv("first_registration") ??
+      (regMonth ? [regMonth, year].filter(Boolean).join(" ") : null),
+    warranty: dv("warranty", "garantia"),
+    co2: intFrom(dv("co2_emissions", "co2")),
+    imageUrls: photos,
+    gearbox:
+      (item.gearbox ? (GEARBOX_LABEL[item.gearbox] ?? null) : null) ??
+      dv("gearbox", "caixa"),
+    power: item.power_hp ?? intFrom(dv("engine_power", "potencia")),
+    displacement:
+      item.engine_cc != null && item.engine_cc >= 500 && item.engine_cc <= 9000
+        ? item.engine_cc
+        : intFrom(dv("engine_capacity", "cilindrada")),
+    km: item.mileage_km ?? intFrom(dv("quilometros", "mileage")),
+    fuel:
+      (item.fuel ? (FUEL_LABEL[item.fuel] ?? null) : null) ??
+      dv("combustivel", "fuel_type"),
+    year: year ?? null,
+    location:
+      [text(item.location_city), text(item.location_region)]
+        .filter(Boolean)
+        .join(", ") || null,
+    sellerType:
+      d.seller?.type === "PROFESSIONAL" || item.seller_type === "dealer"
+        ? "Profissional"
+        : d.seller?.type === "PRIVATE" || item.seller_type === "private"
+          ? "Particular"
+          : null,
+    sellerName: d.seller?.name ?? text(item.seller_name),
+  };
+}

@@ -1,17 +1,24 @@
 import { prisma } from "@/lib/prisma";
 import { fetchListingDetail } from "../scripts/scraper/detail";
+import type { ListingDetail } from "../scripts/scraper/detail";
+import { fetchDetailFromCarrosApi } from "../scripts/scraper/sites/carros-api";
+import { isBackupListingSource } from "../scripts/scraper/types";
 
 // re-enriquecer se os detalhes tiverem mais de N dias
 const STALE_DAYS = 7;
 
 /**
  * Garante que um anúncio externo tem os detalhes (descrição, equipamento, etc.)
- * preenchidos. Vai buscar à origem apenas na primeira visita (ou se ficarem
- * velhos), guardando em cache na BD. Devolve o registo atualizado.
+ * preenchidos. Corre apenas na primeira visita (ou se ficarem velhos),
+ * guardando em cache na BD. Anúncios do nosso scraper: fetch direto à origem,
+ * com a Carros API como fallback (ex.: bloqueio anti-bot). Anúncios vindos da
+ * Carros API (fonte API_*): pede-lhe o scrape on-demand primeiro, origem como
+ * fallback. Devolve o registo atualizado.
  */
 export async function ensureListingDetail(listing: {
   id: string;
   source: string;
+  externalId: string;
   url: string;
   detailsFetchedAt: Date | null;
   imageUrls: string;
@@ -31,18 +38,41 @@ export async function ensureListingDetail(listing: {
       STALE_DAYS * 24 * 60 * 60 * 1000;
   if (fresh) return null;
 
-  const detail = await fetchListingDetail(listing.source as any, listing.url);
-
   // fetch falhou ou página vazia/bloqueada → não escrevas nada por cima dos
   // dados que já temos; sem detailsFetchedAt, a próxima visita tenta de novo.
-  const gotSomething =
-    detail.description != null ||
-    detail.imageUrls.length > 0 ||
-    detail.km != null ||
-    detail.year != null ||
-    detail.gearbox != null ||
-    detail.fuel != null;
-  if (!gotSomething) return null;
+  const hasContent = (d: ListingDetail) =>
+    d.description != null ||
+    d.imageUrls.length > 0 ||
+    d.km != null ||
+    d.year != null ||
+    d.gearbox != null ||
+    d.fuel != null;
+
+  const fromOrigin = () => fetchListingDetail(listing.source, listing.url);
+  const fromApi = () =>
+    fetchDetailFromCarrosApi(listing.source, {
+      url: listing.url,
+      externalId: listing.externalId,
+    });
+
+  // Anúncios que vieram da Carros API (fonte API_*) chegam sem detalhe — é a
+  // ela que pedimos o scrape on-demand (tem o id interno do OLX e acesso
+  // garantido às origens); o fetch direto fica como fallback. Para anúncios do
+  // nosso scraper é ao contrário: origem primeiro, API só se ela falhar
+  // (ex.: bloqueio Cloudflare).
+  const fetchers = isBackupListingSource(listing.source)
+    ? [fromApi, fromOrigin]
+    : [fromOrigin, fromApi];
+
+  let detail: ListingDetail | null = null;
+  for (const fetcher of fetchers) {
+    const d = await fetcher();
+    if (d && hasContent(d)) {
+      detail = d;
+      break;
+    }
+  }
+  if (!detail) return null;
 
   // junta as fotos da galeria completa às que já tínhamos, sem duplicar
   let existingImgs: string[] = [];

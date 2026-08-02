@@ -7,9 +7,13 @@ import { purgeOldEvents } from "@/lib/recommendations";
  *
  * Como uma função serverless não pode correr horas, cada invocação processa
  * um lote de páginas e guarda o cursor na BD (ScrapeState). O cron corre com
- * frequência (ex. de 2 em 2 horas) e:
- *  - se o último ciclo completo tem menos de SCRAPE_INTERVAL_DAYS (3), sai logo;
+ * frequência (a cada 15 min) e:
+ *  - se o último ciclo completo tem menos de SCRAPE_INTERVAL_HOURS (2), sai logo;
  *  - caso contrário, continua o ciclo de onde ficou.
+ *
+ * As 4 fontes correm em paralelo dentro da invocação, por isso o lote por
+ * invocação comporta ~4× mais páginas do que quando corriam em série — o
+ * limite prático é o deadline, não o BATCH_PAGES.
  *
  * Env vars necessárias na Vercel: CRON_SECRET, DATABASE_URL (Postgres!).
  */
@@ -17,7 +21,7 @@ import { purgeOldEvents } from "@/lib/recommendations";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // Fluid compute; ajusta ao teu plano
 
-const BATCH_PAGES = Number(process.env.SCRAPE_BATCH_PAGES ?? 120);
+const BATCH_PAGES = Number(process.env.SCRAPE_BATCH_PAGES ?? 600);
 const TIME_BUDGET_MS = (maxDuration - 40) * 1000;
 
 export async function GET(request: Request) {

@@ -16,13 +16,19 @@ export const ADAPTERS: SiteAdapter[] = [
   carrosApi,
 ];
 
-export const SCRAPE_INTERVAL_DAYS = Number(
-  process.env.SCRAPE_INTERVAL_DAYS ?? 3
-);
+/** Pausa entre ciclos completos, em horas. `SCRAPE_INTERVAL_DAYS` continua a
+ * ser aceite (em dias) para nao partir configs antigas. */
+export const SCRAPE_INTERVAL_HOURS = (() => {
+  if (process.env.SCRAPE_INTERVAL_HOURS != null)
+    return Number(process.env.SCRAPE_INTERVAL_HOURS);
+  if (process.env.SCRAPE_INTERVAL_DAYS != null)
+    return Number(process.env.SCRAPE_INTERVAL_DAYS) * 24;
+  return 2;
+})();
 
 interface CycleState {
   startedAt: string | null; // ciclo em curso
-  finishedAt: string | null; // último ciclo completo
+  finishedAt: string | null; // ultimo ciclo completo
 }
 
 interface SourceState {
@@ -31,19 +37,17 @@ interface SourceState {
   pagesDone: number;
   created: number;
   updated: number;
-  failStreak: number; // invocações seguidas a falhar nesta fonte
+  failStreak: number; // invocacoes seguidas a falhar nesta fonte
 }
 
-/** Falhas consecutivas a partir das quais a fonte desiste do ciclo atual —
- *  sem isto, uma fonte permanentemente bloqueada (ex.: 403 anti-bot) impede
- *  o ciclo de fechar e o deactivateStale/dedupe de correr para as restantes. */
+/** Falhas consecutivas a partir das quais a fonte desiste do ciclo atual. */
 const MAX_FAIL_STREAK = 3;
 
 export interface RunOptions {
   sources?: AdapterSource[]; // default: todas
-  maxPages?: number; // nº máx. de páginas nesta invocação (todas as fontes somadas)
+  maxPages?: number; // numero maximo de paginas nesta invocacao
   deadline?: number; // Date.now() limite (para serverless)
-  reset?: boolean; // recomeça o ciclo do zero
+  reset?: boolean; // recomeca o ciclo do zero
 }
 
 export interface RunSummary {
@@ -89,16 +93,14 @@ export async function runScrape(opts: RunOptions = {}): Promise<RunSummary> {
     for (const a of ADAPTERS) await setState(sourceKey(a.name), null);
   }
 
-  // ciclo anterior terminou há menos de SCRAPE_INTERVAL_DAYS? então não faz nada
   if (!cycle.startedAt && cycle.finishedAt) {
     const ageMs = Date.now() - new Date(cycle.finishedAt).getTime();
-    if (ageMs < SCRAPE_INTERVAL_DAYS * 24 * 60 * 60 * 1000 && !opts.reset) {
+    if (ageMs < SCRAPE_INTERVAL_HOURS * 60 * 60 * 1000 && !opts.reset) {
       summary.skipped = true;
       return summary;
     }
   }
 
-  // inicia novo ciclo se necessário
   if (!cycle.startedAt) {
     cycle = {
       startedAt: new Date().toISOString(),
@@ -109,9 +111,8 @@ export async function runScrape(opts: RunOptions = {}): Promise<RunSummary> {
     console.log(`[ciclo] novo ciclo iniciado em ${cycle.startedAt}`);
   }
 
-  for (const adapter of adapters) {
+  const runAdapter = async (adapter: SiteAdapter): Promise<SourceState> => {
     const key = sourceKey(adapter.name);
-    // merge com defaults (um estado guardado como {} não deve dar NaN)
     const loaded = (await getState<Partial<SourceState>>(key)) ?? {};
     const state: SourceState = {
       cursor: loaded.cursor,
@@ -127,6 +128,7 @@ export async function runScrape(opts: RunOptions = {}): Promise<RunSummary> {
       summary.pages < maxPages &&
       Date.now() < deadline
     ) {
+      summary.pages++;
       try {
         const result = await adapter.scrapePage(state.cursor ?? undefined);
         for (const item of result.items) {
@@ -137,36 +139,40 @@ export async function runScrape(opts: RunOptions = {}): Promise<RunSummary> {
         state.cursor = result.nextCursor;
         state.pagesDone++;
         state.failStreak = 0;
-        summary.pages++;
         console.log(
-          `[${adapter.name}] página ${state.pagesDone} — ${result.items.length} anúncios ` +
+          `[${adapter.name}] pagina ${state.pagesDone} - ${result.items.length} anuncios ` +
             `(total: ${state.created} novos, ${state.updated} atualizados)`
         );
         if (result.nextCursor === null) {
           state.finished = true;
           console.log(
-            `[${adapter.name}] terminado (${state.pagesDone} páginas)`
+            `[${adapter.name}] terminado (${state.pagesDone} paginas)`
           );
         }
         await setState(key, state);
         if (!state.finished) await politeDelay();
       } catch (err) {
         console.error(
-          `[${adapter.name}] erro na página ${state.pagesDone + 1}:`,
+          `[${adapter.name}] erro na pagina ${state.pagesDone + 1}:`,
           err
         );
         state.failStreak++;
         if (state.failStreak >= MAX_FAIL_STREAK) {
           state.finished = true;
           console.error(
-            `[${adapter.name}] ${state.failStreak} invocações seguidas a falhar — desisto desta fonte até ao próximo ciclo`
+            `[${adapter.name}] ${state.failStreak} invocacoes seguidas a falhar - desisto desta fonte ate ao proximo ciclo`
           );
         }
         await setState(key, state);
-        break; // passa à fonte seguinte; retoma na próxima invocação
+        break;
       }
     }
+    return state;
+  };
 
+  const states = await Promise.all(adapters.map(runAdapter));
+  adapters.forEach((adapter, i) => {
+    const state = states[i];
     summary.perSource[adapter.name] = {
       pagesDone: state.pagesDone,
       created: state.created,
@@ -175,9 +181,8 @@ export async function runScrape(opts: RunOptions = {}): Promise<RunSummary> {
     };
     summary.created += state.created;
     summary.updated += state.updated;
-  }
+  });
 
-  // todas as fontes (do universo completo, não só as selecionadas) terminaram?
   const allStates = await Promise.all(
     ADAPTERS.map((a) => getState<SourceState>(sourceKey(a.name)))
   );
@@ -185,7 +190,6 @@ export async function runScrape(opts: RunOptions = {}): Promise<RunSummary> {
 
   if (allFinished && cycle.startedAt) {
     summary.deactivated = await deactivateStale(new Date(cycle.startedAt));
-    // deduplicação entre fontes (esconde o mesmo carro repetido)
     const dedupe = await dedupeListings();
     await setState(CYCLE_KEY, {
       startedAt: null,
@@ -193,7 +197,7 @@ export async function runScrape(opts: RunOptions = {}): Promise<RunSummary> {
     });
     summary.cycleFinished = true;
     console.log(
-      `[ciclo] completo — ${summary.deactivated} desativados · ` +
+      `[ciclo] completo - ${summary.deactivated} desativados · ` +
         `${dedupe.duplicates} duplicados escondidos (${dedupe.groups} grupos)`
     );
   }

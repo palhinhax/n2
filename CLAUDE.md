@@ -90,9 +90,11 @@ Protected routes (`/dashboard`, `/garagem`, `/admin`) are enforced in `middlewar
 
 `scripts/scraper/` — each source has an adapter in `sites/` implementing the `SiteAdapter` interface (defined in `types.ts`). The engine in `engine.ts` drives all adapters, persisting a resumable cursor in the `ScrapeState` DB table so Vercel's 10s function timeout doesn't lose progress between invocations.
 
-The scrape cycle runs every 2 hours via `/api/cron/scrape` (Vercel Cron, protected by `CRON_SECRET`). A full cycle completes when all sources finish; only then does `deactivateStale` mark gone listings as `active=false` and `dedupeListings` hide cross-source duplicates.
+The cron fires every 15 minutes via `/api/cron/scrape` (Vercel Cron, protected by `CRON_SECRET`); each invocation advances all four sources **in parallel** until its time budget runs out. A full cycle completes when all sources finish; only then does `deactivateStale` mark gone listings as `active=false` and `dedupeListings` hide cross-source duplicates. The next cycle starts `SCRAPE_INTERVAL_HOURS` (default 2) after the previous one finished. OLX brand slugs are discovered dynamically from the category page, and brands truncated by OLX's ~1000-result search cap are automatically subdivided by district.
 
-Image URLs from scraped listings are stored as JSON arrays (hotlink to origin CDNs, never downloaded). Listing details (description, equipment, color, etc.) are fetched on demand when someone opens the listing for the first time (`detailsFetchedAt` is set).
+A fifth pseudo-source (`sites/carros-api.ts`, adapter name `CARROS_API`) imports from the external "API Carros PT" aggregator (Railway) as a **backup**: its rows are marked `origin: "api"` and never override rows our own scraper produced — `upsertListing` skips API updates to scraper-origin rows (matching by `(source, externalId)` with URL fallback), the scraper reclaims API rows it re-finds, and `dedupeListings` hides the API copy of a same-source pair. `CARROS_API_KEY` is also used by the admin button that triggers the remote API scrape.
+
+Image URLs from scraped listings are stored as JSON arrays (hotlink to origin CDNs, never downloaded). Listing details (description, equipment, color, etc.) are fetched on demand when someone opens the listing for the first time (`detailsFetchedAt` is set); if the origin site blocks the fetch (e.g. PiscaPisca's Cloudflare), `ensureListingDetail` can fall back to the Carros API detail endpoint when available.
 
 ### AI Features
 

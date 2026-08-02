@@ -2,9 +2,9 @@
  * CLI do scraper.
  *
  *   npm run scrape                        # ciclo completo (todas as fontes)
- *   npm run scrape -- --site OLX          # só uma fonte (OLX | STANDVIRTUAL | PISCAPISCA | AUTOSAPO | CARROS_API)
- *   npm run scrape -- --max-pages 5       # teste rápido: 5 páginas
- *   npm run scrape -- --reset             # recomeça o ciclo do zero
+ *   npm run scrape -- --site OLX          # so uma fonte (OLX | STANDVIRTUAL | PISCAPISCA | AUTOSAPO | CARROS_API)
+ *   npm run scrape -- --max-pages 5       # teste rapido: 5 paginas
+ *   npm run scrape -- --reset             # recomeca o ciclo do zero
  */
 import { runScrape } from "./engine";
 import { dedupeListings } from "./dedupe";
@@ -20,9 +20,9 @@ async function main() {
   const maxPages = arg("max-pages") ? Number(arg("max-pages")) : undefined;
   const reset = process.argv.includes("--reset");
 
-  console.log("A iniciar scraping…", {
+  console.log("A iniciar scraping...", {
     site: site ?? "todas",
-    maxPages: maxPages ?? "∞",
+    maxPages: maxPages ?? "infinito",
     reset,
   });
   const summary = await runScrape({
@@ -33,20 +33,19 @@ async function main() {
 
   if (summary.skipped) {
     console.log(
-      "Ciclo recente já completo — nada a fazer (usa --reset para forçar)."
+      "Ciclo recente ja completo - nada a fazer (usa --reset para forcar)."
     );
     return;
   }
   console.log("\nResumo:");
   console.table(summary.perSource);
   console.log(
-    `páginas: ${summary.pages} | novos: ${summary.created} | atualizados: ${summary.updated}` +
+    `paginas: ${summary.pages} | novos: ${summary.created} | atualizados: ${summary.updated}` +
       (summary.cycleFinished
         ? ` | desativados: ${summary.deactivated} | CICLO COMPLETO`
         : "")
   );
 
-  // dedup entre fontes (esconde o mesmo carro repetido)
   const dedupe = await dedupeListings();
   console.log(
     `dedup: ${dedupe.duplicates} duplicados escondidos (${dedupe.groups} grupos)`

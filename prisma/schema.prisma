@@ -45,15 +45,15 @@ model User {
 
 // Pesquisa guardada por um utilizador, para alertas de novos carros / preço.
 model SavedSearch {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  label     String
-  query     String // JSON dos filtros (marca, modelo, precoMax, fuel, …)
-  lastCount Int      @default(0) // nº de resultados na última visita
-  notifiedCount Int  @default(0) // nº de resultados na última notificação (cron de alertas)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label         String
+  query         String // JSON dos filtros (marca, modelo, precoMax, fuel, …)
+  lastCount     Int      @default(0) // nº de resultados na última visita
+  notifiedCount Int      @default(0) // nº de resultados na última notificação (cron de alertas)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@index([userId])
 }
@@ -141,15 +141,15 @@ model Car {
   featured   Boolean   @default(false)
   featuredAt DateTime? // quando foi destacado (ordena os destaques entre si)
 
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  photos    Photo[]
-  offers    Offer[]
-  reminders Reminder[]
-  views     CarView[]
-  favorites Favorite[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  photos      Photo[]
+  offers      Offer[]
+  reminders   Reminder[]
+  views       CarView[]
+  favorites   Favorite[]
   pricePoints PricePoint[]
-  events    CarEvent[]
+  events      CarEvent[]
 
   @@index([featured, status])
 }
@@ -230,33 +230,34 @@ model Offer {
 // ---------- Scraping (OLX / Standvirtual / Piscapisca) ----------
 
 model ScrapedListing {
-  id          String   @id @default(cuid())
-  source      String // OLX | STANDVIRTUAL | PISCAPISCA
-  externalId  String // id do anúncio no site de origem
-  url         String // link para o anúncio original
-  title       String // título limpo "Marca Modelo Versão" (normalizado)
-  rawTitle    String? // título original do site de origem (antes da limpeza)
-  brand       String?
-  model       String?
-  version     String? // motorização/acabamento — ex. "1.5 dCi Nacional"
-  year        Int?
-  km          Int?
-  fuel        String?
-  gearbox     String?
-  power       Int? // cv
+  id           String   @id @default(cuid())
+  source       String // OLX | STANDVIRTUAL | PISCAPISCA
+  externalId   String // id do anúncio no site de origem
+  url          String // link para o anúncio original
+  title        String // título limpo "Marca Modelo Versão" (normalizado)
+  rawTitle     String? // título original do site de origem (antes da limpeza)
+  brand        String?
+  model        String?
+  version      String? // motorização/acabamento — ex. "1.5 dCi Nacional"
+  year         Int?
+  km           Int?
+  fuel         String?
+  gearbox      String?
+  power        Int? // cv
   displacement Int? // cm3
-  price       Int? // EUR
-  location    String?
-  sellerType  String? // Particular | Profissional
-  sellerName  String?
-  imageUrls   String   @default("[]") // JSON array de URLs (hotlink CDN de origem)
-  active      Boolean  @default(true) // false = deixou de aparecer no site
-  firstSeenAt DateTime @default(now())
-  lastSeenAt  DateTime @default(now())
+  price        Int? // EUR
+  location     String?
+  sellerType   String? // Particular | Profissional
+  sellerName   String?
+  imageUrls    String   @default("[]") // JSON array de URLs (hotlink CDN de origem)
+  active       Boolean  @default(true) // false = deixou de aparecer no site
+  origin       String   @default("scraper") // scraper (nosso) | api (backup externo)
+  firstSeenAt  DateTime @default(now())
+  lastSeenAt   DateTime @default(now())
 
   // ---- Detalhe enriquecido (preenchido sob demanda ao abrir o anúncio) ----
   description      String? // texto do anúncio
-  equipment        String  @default("[]") // JSON: [{ group, items: string[] }]
+  equipment        String    @default("[]") // JSON: [{ group, items: string[] }]
   color            String?
   doors            Int?
   seats            Int?
@@ -292,19 +293,20 @@ model ScrapedListing {
   @@index([dedupeKey])
   @@index([active, isDuplicate])
   @@index([active, isDuplicate, suspicious])
+  @@index([url])
 }
 
 // Ponto do histórico de preço de um anúncio (do site OU externo).
 // Regista-se um ponto na criação e um por cada mudança de preço detetada —
 // permite mostrar a linha temporal completa e contar mudanças.
 model PricePoint {
-  id        String   @id @default(cuid())
+  id        String          @id @default(cuid())
   carId     String?
   car       Car?            @relation(fields: [carId], references: [id], onDelete: Cascade)
   listingId String?
   listing   ScrapedListing? @relation(fields: [listingId], references: [id], onDelete: Cascade)
   price     Int
-  createdAt DateTime @default(now())
+  createdAt DateTime        @default(now())
 
   @@index([carId, createdAt])
   @@index([listingId, createdAt])
@@ -419,11 +421,11 @@ model InstagramPost {
   imageUrl String? // PNG gerado, guardado no B2
 
   // DOWNLOADED = descarregado à mão; PUBLISHED = publicado via Graph API
-  status     String    @default("DRAFT") // DRAFT | DOWNLOADED | PUBLISHED | FAILED
-  mediaId    String? // id do post no Instagram
-  permalink  String?
-  error      String? // mensagem de erro da última tentativa
-  createdAt  DateTime  @default(now())
+  status      String    @default("DRAFT") // DRAFT | DOWNLOADED | PUBLISHED | FAILED
+  mediaId     String? // id do post no Instagram
+  permalink   String?
+  error       String? // mensagem de erro da última tentativa
+  createdAt   DateTime  @default(now())
   publishedAt DateTime?
 
   @@index([createdAt])

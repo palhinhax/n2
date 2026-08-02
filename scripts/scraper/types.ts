@@ -42,6 +42,7 @@ export interface Listing {
   imageUrls: string[];
   description?: string | null;
   firstSeenAt?: Date | null;
+  origin?: "scraper" | "api";
 }
 
 /** Resultado de uma pagina de scraping. nextCursor === null => fonte terminada. */
