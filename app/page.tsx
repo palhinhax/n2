@@ -172,6 +172,9 @@ export default async function Home() {
                 ★ {b}
               </Link>
             ))}
+            <Link className="n2-chip !border-olive/50" href="/radar">
+              🎯 Radar de negócios
+            </Link>
             <Link className="n2-chip" href="/eletricos">
               ⚡ Elétricos
             </Link>

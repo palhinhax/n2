@@ -19,6 +19,7 @@ model User {
   role         String   @default("USER") // USER | ADMIN
   phone        String?
   district     String?
+  dealAlerts   Boolean  @default(true) // radar de negócios: alerta diário no distrito
   createdAt    DateTime @default(now())
 
   // ---- Perfil / conta ----
@@ -148,6 +149,7 @@ model Car {
   views     CarView[]
   favorites Favorite[]
   pricePoints PricePoint[]
+  events    CarEvent[]
 
   @@index([featured, status])
 }
@@ -194,6 +196,23 @@ model Photo {
   key      String
   url      String
   position Int    @default(0)
+}
+
+// Historial documentado do carro (o "Carfax" da garagem): revisões, IPO,
+// reparações… O custo é privado (só o dono vê); o resto pode aparecer no
+// anúncio público como selo "Historial documentado".
+model CarEvent {
+  id        String   @id @default(cuid())
+  carId     String
+  car       Car      @relation(fields: [carId], references: [id], onDelete: Cascade)
+  type      String // Revisão | Manutenção | Reparação | IPO | Pneus | Outro
+  date      DateTime
+  km        Int?
+  cost      Int? // EUR — privado
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([carId, date])
 }
 
 model Offer {

@@ -37,6 +37,8 @@ export async function sitemapEntries(
       return [
         { loc: abs("/"), changefreq: "daily", priority: 1 },
         { loc: abs("/carros"), changefreq: "hourly", priority: 0.9 },
+        { loc: abs("/radar"), changefreq: "hourly", priority: 0.8 },
+        { loc: abs("/indice-precos"), changefreq: "daily", priority: 0.8 },
         { loc: abs("/eletricos"), changefreq: "daily", priority: 0.8 },
         { loc: abs("/marcas"), changefreq: "daily", priority: 0.8 },
         { loc: abs("/vender"), changefreq: "monthly", priority: 0.8 },

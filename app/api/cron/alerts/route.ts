@@ -4,6 +4,7 @@ import { countListings, type ListingQuery } from "@/lib/car-listing";
 import { createNotification } from "@/lib/notifications";
 import { sendEmail, alertEmailHtml } from "@/lib/email";
 import { fmtEur } from "@/lib/constants";
+import { findDeals } from "@/lib/deal-radar";
 
 /**
  * Cron de alertas inteligentes (corre 1x/dia, depois do scraping):
@@ -29,6 +30,7 @@ export async function GET(request: Request) {
 
   let priceDrops = 0;
   let searchAlerts = 0;
+  let dealAlerts = 0;
   let emails = 0;
 
   try {
@@ -170,7 +172,46 @@ export async function GET(request: Request) {
       }
     }
 
-    return NextResponse.json({ ok: true, priceDrops, searchAlerts, emails });
+    // ---- 3. radar de negócios por distrito (in-app, 1x/dia) ----
+    const radarUsers = await prisma.user.findMany({
+      where: { dealAlerts: true, district: { not: null } },
+      select: { id: true, district: true },
+    });
+    const byDistrict = new Map<string, string[]>();
+    for (const u of radarUsers) {
+      const arr = byDistrict.get(u.district!) ?? [];
+      arr.push(u.id);
+      byDistrict.set(u.district!, arr);
+    }
+    for (const [district, userIds] of Array.from(byDistrict.entries())) {
+      // só negócios que apareceram nas últimas 24h — evita repetir os mesmos
+      const deals = await findDeals({
+        distrito: district,
+        sinceDays: 1,
+        take: 12,
+      });
+      if (deals.length === 0) continue;
+      const top = deals[0];
+      const url = `/radar?distrito=${encodeURIComponent(district)}`;
+      for (const userId of userIds) {
+        await createNotification({
+          userId,
+          kind: "DEAL_RADAR",
+          title: `🎯 ${deals.length === 1 ? "1 negócio novo" : `${deals.length} negócios novos`} em ${district}`,
+          body: `O melhor: ${top.listing.title} a ${fmtEur(top.listing.price!)} (${top.belowPct}% abaixo do mercado).`,
+          url,
+        });
+        dealAlerts++;
+      }
+    }
+
+    return NextResponse.json({
+      ok: true,
+      priceDrops,
+      searchAlerts,
+      dealAlerts,
+      emails,
+    });
   } catch (err) {
     console.error("[cron/alerts]", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });

@@ -19,6 +19,7 @@ export default function AccountForm({ user }: { user: any }) {
     nif: user.nif || "",
     website: user.website || "",
     hours: user.hours || "",
+    dealAlerts: user.dealAlerts !== false,
   });
   const [avatarUrl, setAvatarUrl] = useState<string>(user.avatarUrl || "");
   const [busy, setBusy] = useState(false);
@@ -235,6 +236,15 @@ export default function AccountForm({ user }: { user: any }) {
             ))}
           </select>
         </div>
+        <label className="flex cursor-pointer items-center gap-2 text-[0.92rem] font-semibold text-ink sm:col-span-2">
+          <input
+            type="checkbox"
+            checked={f.dealAlerts}
+            onChange={(e) => setF({ ...f, dealAlerts: e.target.checked })}
+            className="h-4 w-4 accent-clay"
+          />
+          🎯 Avisar-me de negócios abaixo do mercado no meu distrito
+        </label>
         <div className="sm:col-span-2">
           <label className="flabel">
             {isStand ? "Sobre o stand" : "Sobre mim"}

@@ -76,6 +76,11 @@ export default async function CarDetail({
       model: true,
       photos: { orderBy: { position: "asc" } },
       owner: true,
+      // historial documentado — o custo é privado, nunca sai daqui
+      events: {
+        orderBy: { date: "desc" },
+        select: { id: true, type: true, date: true, km: true, note: true },
+      },
       _count: { select: { favorites: true } },
     },
   });
@@ -274,6 +279,34 @@ export default async function CarDetail({
                 {car.description || "Sem descrição."}
               </p>
             </section>
+            {car.events.length > 0 && (
+              <section className="mt-7">
+                <h2 className="mb-1 font-head text-[1.4rem] font-extrabold text-ink">
+                  📋 Historial documentado
+                </h2>
+                <p className="mb-3 text-[0.88rem] text-n2muted">
+                  Registos que o dono foi guardando na garagem digital ao longo
+                  da vida do carro.
+                </p>
+                <ol className="relative ml-2 flex flex-col gap-3 border-l-2 border-outline pl-5">
+                  {car.events.map((ev) => (
+                    <li key={ev.id} className="relative">
+                      <span className="absolute -left-[27px] top-1 h-3 w-3 rounded-full border-2 border-cream bg-olive" />
+                      <b className="text-[0.95rem] text-ink">{ev.type}</b>{" "}
+                      <span className="text-[0.85rem] text-n2muted">
+                        · {ev.date.toLocaleDateString("pt-PT")}
+                        {ev.km != null && (
+                          <> · {ev.km.toLocaleString("pt-PT")} km</>
+                        )}
+                      </span>
+                      {ev.note && (
+                        <p className="text-[0.88rem] text-n2muted">{ev.note}</p>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            )}
             <section className="mt-7">
               <CarAssistant
                 kind="car"
@@ -389,6 +422,14 @@ export default async function CarDetail({
                   <span className="inline-flex items-center gap-1 text-[0.76rem] font-semibold text-olive">
                     ✓ Anúncio moderado pela equipa
                   </span>
+                  {car.events.length > 0 && (
+                    <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-olive/10 px-2 py-0.5 text-[0.76rem] font-bold text-olive">
+                      📋 Historial documentado ·{" "}
+                      {car.events.length === 1
+                        ? "1 registo"
+                        : `${car.events.length} registos`}
+                    </span>
+                  )}
                   <div className="mt-2">
                     <ReportButton
                       kind="car"

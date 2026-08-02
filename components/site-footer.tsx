@@ -40,6 +40,16 @@ export default function SiteFooter() {
                 </Link>
               </li>
               <li>
+                <Link href="/radar" className="hover:text-stone2">
+                  🎯 Radar de negócios
+                </Link>
+              </li>
+              <li>
+                <Link href="/indice-precos" className="hover:text-stone2">
+                  Índice de preços
+                </Link>
+              </li>
+              <li>
                 <Link href="/calcular-isv" className="hover:text-stone2">
                   Calcular ISV / IUC
                 </Link>

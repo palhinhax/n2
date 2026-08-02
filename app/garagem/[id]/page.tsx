@@ -7,6 +7,7 @@ import SiteFooter from "@/components/site-footer";
 import CarArt from "@/components/car-art";
 import SalePanel from "@/components/sale-panel";
 import ReminderPanel from "@/components/reminder-panel";
+import CarHistoryPanel from "@/components/car-history-panel";
 import OffersReceived from "@/components/offers-received";
 import DeleteCar from "@/components/delete-car";
 
@@ -25,6 +26,7 @@ export default async function ManageCar({
       model: true,
       photos: { orderBy: { position: "asc" } },
       reminders: { orderBy: { dueDate: "asc" } },
+      events: { orderBy: { date: "desc" } },
       offers: { include: { buyer: true }, orderBy: { createdAt: "desc" } },
       _count: { select: { offers: true, favorites: true } },
     },
@@ -144,7 +146,10 @@ export default async function ManageCar({
             />
             <OffersReceived offers={car.offers} />
           </div>
-          <ReminderPanel carId={car.id} reminders={car.reminders} />
+          <div className="flex flex-col gap-4">
+            <ReminderPanel carId={car.id} reminders={car.reminders} />
+            <CarHistoryPanel carId={car.id} events={car.events} />
+          </div>
         </div>
       </div>
       <SiteFooter />

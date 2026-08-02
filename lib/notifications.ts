@@ -7,7 +7,8 @@ export type NotificationKind =
   | "NEW_MATCHES"
   | "OFFER_RECEIVED"
   | "OFFER_ACCEPTED"
-  | "OFFER_REJECTED";
+  | "OFFER_REJECTED"
+  | "DEAL_RADAR";
 
 export async function createNotification(opts: {
   userId: string;

@@ -33,6 +33,8 @@ export async function PATCH(req: Request) {
     if (b[k] !== undefined) data[k] = b[k] ? String(b[k]) : null;
   }
 
+  if (b.dealAlerts !== undefined) data.dealAlerts = !!b.dealAlerts;
+
   const updated = await prisma.user.update({
     where: { id: session.user.id },
     data,

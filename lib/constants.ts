@@ -56,6 +56,16 @@ export const REMINDER_TYPES = [
   "Pneus",
   "Outro",
 ];
+// Tipos de registo do historial documentado do carro (garagem).
+export const CAR_EVENT_TYPES = [
+  "Revisão",
+  "Manutenção",
+  "Reparação",
+  "IPO",
+  "Pneus",
+  "Compra",
+  "Outro",
+];
 export const DISTRICTS = [
   "Aveiro",
   "Beja",

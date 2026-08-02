@@ -88,6 +88,15 @@ export default async function ExternalCarDetail({
   const session = await auth();
   const isAdmin = (session?.user as any)?.role === "ADMIN";
 
+  // Anúncios que desapareceram da origem ficam na BD para sempre (histórico de
+  // preços, índice de mercado), mas a página pública "põe-se do sol" ao fim de
+  // 30 dias — não queremos carros mortos pendurados no site (nem no Google).
+  const SUNSET_DAYS = 30;
+  const inactiveTooLong =
+    !listing.active &&
+    Date.now() - listing.lastSeenAt.getTime() > SUNSET_DAYS * 86400000;
+  if (inactiveTooLong && !isAdmin) notFound();
+
   // enriquece à primeira visita (ou se os detalhes estiverem velhos)
   try {
     const updated = await ensureListingDetail(listing);
@@ -161,14 +170,33 @@ export default async function ExternalCarDetail({
 
   const sourceLabel = SOURCE_LABEL[listing.source] ?? listing.source;
 
-  const [stats, history] = await Promise.all([
+  // o mesmo carro noutros portais (mesma dedupeKey) — comparação de preços
+  const [stats, history, sameCar] = await Promise.all([
     marketStats({
       brand: listing.brand,
       model: listing.model,
       year: listing.year,
     }),
     externalListingHistory(listing),
+    listing.dedupeKey
+      ? prisma.scrapedListing.findMany({
+          where: {
+            dedupeKey: listing.dedupeKey,
+            active: true,
+            suspicious: false,
+            id: { not: listing.id },
+          },
+          select: { id: true, source: true, price: true },
+          orderBy: { price: "asc" },
+          take: 6,
+        })
+      : Promise.resolve([]),
   ]);
+  const cheapestElsewhere = sameCar.find((s) => s.price != null);
+  const isCheapestHere =
+    listing.price != null &&
+    (cheapestElsewhere?.price == null ||
+      listing.price <= cheapestElsewhere.price);
   const rating = ratePrice(listing.price, stats);
 
   // relatório de compra: custos anuais + desvalorização (cálculo local, rápido)
@@ -411,6 +439,72 @@ export default async function ExternalCarDetail({
               </div>
               {isAdmin && <RefreshDetailsButton id={listing.id} />}
             </div>
+
+            {sameCar.length > 0 && (
+              <div className="n2-card p-5">
+                <h2 className="mb-1 font-head text-[1.05rem] font-bold text-ink">
+                  🔀 O mesmo carro noutros anúncios
+                </h2>
+                <p className="mb-3 text-[0.8rem] text-n2muted">
+                  Detetámos este carro anunciado mais do que uma vez — noutro
+                  portal ou republicado. Só no Nacional 2 consegues comparar.
+                </p>
+                <ul className="flex flex-col gap-2">
+                  <li className="flex items-center justify-between rounded-xl bg-cream px-3 py-2 text-[0.9rem]">
+                    <span className="font-semibold text-ink">
+                      {sourceLabel}{" "}
+                      <small className="font-medium text-n2muted">
+                        (este anúncio)
+                      </small>
+                    </span>
+                    <b className="text-ink">
+                      {listing.price != null
+                        ? fmtEur(listing.price)
+                        : "Sob consulta"}
+                    </b>
+                  </li>
+                  {sameCar.map((s) => {
+                    const diff =
+                      listing.price != null && s.price != null
+                        ? s.price - listing.price
+                        : null;
+                    return (
+                      <li
+                        key={s.id}
+                        className="flex items-center justify-between gap-2 rounded-xl bg-cream px-3 py-2 text-[0.9rem]"
+                      >
+                        <Link
+                          href={`/carros/externo/${s.id}`}
+                          className="font-semibold text-ink underline-offset-2 hover:underline"
+                        >
+                          {SOURCE_LABEL[s.source] ?? s.source}
+                        </Link>
+                        <span className="text-right">
+                          <b className="text-ink">
+                            {s.price != null ? fmtEur(s.price) : "Sob consulta"}
+                          </b>
+                          {diff != null && diff !== 0 && (
+                            <small
+                              className={`block font-bold ${diff > 0 ? "text-olive" : "text-[#C6603B]"}`}
+                            >
+                              {diff > 0
+                                ? `+${fmtEur(diff)} que aqui`
+                                : `${fmtEur(diff)} que aqui`}
+                            </small>
+                          )}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {isCheapestHere && sameCar.some((s) => s.price != null) && (
+                  <p className="mt-2 rounded-lg bg-olive/10 px-3 py-1.5 text-[0.82rem] font-bold text-olive">
+                    ✓ Este é o preço mais baixo dos {sameCar.length + 1}{" "}
+                    anúncios deste carro
+                  </p>
+                )}
+              </div>
+            )}
 
             <ListingHistoryCard history={history} />
 
