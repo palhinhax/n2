@@ -27,6 +27,11 @@ export async function upsertListing(
   }
 
   const dedupeKey = dedupeKeyFor(l);
+  // Campos que o cartão da listagem pode trazer vazios mas o enriquecimento
+  // on-demand preenche (sobretudo OLX): null aqui significa "desconhecido",
+  // nunca "apagar" — undefined faz o update do Prisma ignorar o campo, para
+  // não regredir dados já enriquecidos a cada ciclo do scraper.
+  const incomingImgs = l.imageUrls ?? [];
   const data: Record<string, unknown> = {
     url: l.url,
     title: nv.title,
@@ -34,17 +39,17 @@ export async function upsertListing(
     brand: nv.brand ?? l.brand ?? null,
     model: nv.model ?? l.model ?? null,
     version: nv.version,
-    year: l.year ?? null,
-    km: l.km ?? null,
-    fuel: l.fuel ?? null,
-    gearbox: l.gearbox ?? null,
-    power: l.power ?? null,
-    displacement: l.displacement ?? null,
-    price: l.price ?? null,
-    location: l.location ?? null,
-    sellerType: l.sellerType ?? null,
-    sellerName: l.sellerName ?? null,
-    imageUrls: JSON.stringify(l.imageUrls ?? []),
+    year: l.year ?? undefined,
+    km: l.km ?? undefined,
+    fuel: l.fuel ?? undefined,
+    gearbox: l.gearbox ?? undefined,
+    power: l.power ?? undefined,
+    displacement: l.displacement ?? undefined,
+    price: l.price ?? undefined,
+    location: l.location ?? undefined,
+    sellerType: l.sellerType ?? undefined,
+    sellerName: l.sellerName ?? undefined,
+    imageUrls: JSON.stringify(incomingImgs),
     dedupeKey,
     active: true,
     origin,
@@ -78,6 +83,7 @@ export async function upsertListing(
     id: true,
     price: true,
     description: true,
+    imageUrls: true,
     origin: true,
     hiddenByAdmin: true,
     keywordExempt: true,
@@ -130,6 +136,16 @@ export async function upsertListing(
     if (l.description != null && !existing.description) {
       data.description = l.description;
     }
+
+    // nunca substituir uma galeria por menos fotos — o cartão da listagem
+    // traz 0–1 fotos e apagava a galeria completa do enriquecimento
+    let existingImgCount = 0;
+    try {
+      existingImgCount = JSON.parse(existing.imageUrls || "[]").length;
+    } catch {
+      existingImgCount = 0;
+    }
+    if (incomingImgs.length < existingImgCount) delete data.imageUrls;
 
     const newPrice = l.price ?? null;
     if (
