@@ -43,6 +43,23 @@ export default function KeywordAdmin({
   const [busy, setBusy] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const allSelected =
+    flagged.length > 0 && flagged.every((l) => selected.has(l.id));
+
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelected(allSelected ? new Set() : new Set(flagged.map((l) => l.id)));
+  }
 
   async function call(input: string, init: RequestInit): Promise<boolean> {
     setBusy(true);
@@ -136,6 +153,28 @@ export default function KeywordAdmin({
     if (ok) setMessage("Anúncio removido do site.");
   }
 
+  async function bulkAction(action: "exempt" | "hide") {
+    const ids = Array.from(selected);
+    if (!ids.length) return;
+    if (
+      action === "hide" &&
+      !window.confirm(`Remover ${ids.length} anúncios do site?`)
+    )
+      return;
+    const ok = await call("/api/admin/listings/bulk", {
+      method: "POST",
+      body: JSON.stringify({ ids, action }),
+    });
+    if (ok) {
+      setSelected(new Set());
+      setMessage(
+        action === "exempt"
+          ? `${ids.length} anúncios marcados como carro — deixam de ser apanhados.`
+          : `${ids.length} anúncios removidos do site.`
+      );
+    }
+  }
+
   return (
     <div className="flex flex-col gap-5">
       {message && (
@@ -223,11 +262,50 @@ export default function KeywordAdmin({
           </div>
         ) : (
           <div className="flex flex-col">
+            {/* barra de seleção/ações em massa */}
+            <div className="mb-1 flex flex-wrap items-center gap-2 border-b border-outline pb-2">
+              <label className="flex cursor-pointer items-center gap-2 text-[0.85rem] font-semibold text-ink">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleAll}
+                  className="h-4 w-4 accent-olive"
+                />
+                Selecionar todos
+              </label>
+              <span className="text-[0.82rem] text-n2muted">
+                {selected.size} selecionados
+              </span>
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={busy || scanning || selected.size === 0}
+                  onClick={() => bulkAction("exempt")}
+                  className="btn-line btn-xs disabled:opacity-50"
+                >
+                  ✓ É carro ({selected.size})
+                </button>
+                <button
+                  type="button"
+                  disabled={busy || scanning || selected.size === 0}
+                  onClick={() => bulkAction("hide")}
+                  className="btn-line btn-xs text-clay disabled:opacity-50"
+                >
+                  🗑 Remover do site ({selected.size})
+                </button>
+              </div>
+            </div>
             {flagged.map((l) => (
               <div
                 key={l.id}
                 className="flex flex-wrap items-center gap-2 border-b border-outline/60 py-2"
               >
+                <input
+                  type="checkbox"
+                  checked={selected.has(l.id)}
+                  onChange={() => toggleOne(l.id)}
+                  className="h-4 w-4 shrink-0 accent-olive"
+                />
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-semibold text-ink">
                     {l.title}

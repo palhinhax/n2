@@ -146,6 +146,8 @@ Two gotchas the API path depends on, both handled in `lib/instagram.ts`:
 
 `lib/listing-quality.ts` flags listings with implausible data (km > 1M, price < 500 or > 1M, year out of range, "para peças" in title). Suspicious listings are stored but hidden from all public listing queries, sitemap, and market stats. Their detail page is served with `noindex`.
 
+On top of the hardcoded rules, `/admin/suspeitos` manages an admin-curated list of suspicious keywords (`SuspiciousKeyword` model, e.g. "mota", "cama", "brinquedo") matched whole-word and accent-insensitively against the **title and description** (reason `palavra_suspeita`). `lib/suspicious-keywords.ts` caches the list (60s) and `scanKeywordFlags()` re-evaluates all active listings on demand (admin button); the scraper (`upsertListing`), on-demand detail fetch (`ensureListingDetail`) and both backfill scripts also apply it. Keyword matches deliberately bypass the `looksLikeCar` gate (a motorcycle has km/fuel/year); false positives are handled per-listing via `ScrapedListing.keywordExempt` ("É carro" button).
+
 ### Visitor Tracking & Recommendations
 
 `BrowseEvent` records page views and searches with denormalized car attributes (no FK, intentional) so events survive listing deletion and anonymous+logged sessions can be merged. The visitor UUID from the `n2vid` cookie is set in the middleware before the first request hits any page handler.
@@ -154,22 +156,23 @@ Two gotchas the API path depends on, both handled in `lib/instagram.ts`:
 
 ## Key `lib/` Modules
 
-| Module                 | Purpose                                                |
-| ---------------------- | ------------------------------------------------------ |
-| `car-listing.ts`       | Merged listing feed, filters, brand options, destaques |
-| `instagram.ts`         | Post subject loading, captions, Graph API publishing   |
-| `instagram-canvas.ts`  | Client-side 1080×1350 post rendering                   |
-| `price-intel.ts`       | Market price stats and rating                          |
-| `assistant.ts`         | AI system prompts and OpenAI tool definitions          |
-| `ai-limit.ts`          | Daily AI quota enforcement                             |
-| `listing-quality.ts`   | Suspicious listing detection                           |
-| `search.ts`            | Fuzzy brand/model search (bigram similarity)           |
-| `b2.ts`                | Backblaze B2 image upload                              |
-| `favorites.ts`         | Polymorphic favorite logic                             |
-| `notifications.ts`     | In-app notification creation                           |
-| `vehicle-normalize.ts` | Brand/model normalization for scraper                  |
-| `seo.ts`               | Canonical URLs, metadata helpers                       |
-| `constants.ts`         | Shared enums (fuels, districts, reminder types, etc.)  |
+| Module                   | Purpose                                                |
+| ------------------------ | ------------------------------------------------------ |
+| `car-listing.ts`         | Merged listing feed, filters, brand options, destaques |
+| `instagram.ts`           | Post subject loading, captions, Graph API publishing   |
+| `instagram-canvas.ts`    | Client-side 1080×1350 post rendering                   |
+| `price-intel.ts`         | Market price stats and rating                          |
+| `assistant.ts`           | AI system prompts and OpenAI tool definitions          |
+| `ai-limit.ts`            | Daily AI quota enforcement                             |
+| `listing-quality.ts`     | Suspicious listing detection                           |
+| `suspicious-keywords.ts` | Admin keyword list (cache + scan) for flagging         |
+| `search.ts`              | Fuzzy brand/model search (bigram similarity)           |
+| `b2.ts`                  | Backblaze B2 image upload                              |
+| `favorites.ts`           | Polymorphic favorite logic                             |
+| `notifications.ts`       | In-app notification creation                           |
+| `vehicle-normalize.ts`   | Brand/model normalization for scraper                  |
+| `seo.ts`                 | Canonical URLs, metadata helpers                       |
+| `constants.ts`           | Shared enums (fuels, districts, reminder types, etc.)  |
 
 ---
 
