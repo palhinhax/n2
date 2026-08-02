@@ -4,6 +4,14 @@ import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import JsonLd from "@/components/json-ld";
 import { computeMarketIndex, monthLabel } from "@/lib/market-index";
+import {
+  TrendChart,
+  FuelDonut,
+  HBars,
+  ColumnChart,
+  FUEL_COLOR,
+  CHART,
+} from "@/components/market-charts";
 import { fmtEur } from "@/lib/constants";
 import { absolute, SITE_NAME, SITE_URL } from "@/lib/seo";
 
@@ -13,14 +21,42 @@ export const revalidate = 43200;
 export const metadata: Metadata = {
   title: "Índice Nacional 2 — preços de carros usados em Portugal",
   description:
-    "Quanto custam os carros usados em Portugal? Mediana de preços por mês, combustível e marca, calculada a partir de milhares de anúncios de todos os portais. Atualizado diariamente.",
+    "Quanto custam os carros usados em Portugal? Mediana de preços por mês, combustível, ano e marca, tempo médio até vender e desvalorização — calculado a partir de milhares de anúncios de todos os portais.",
   alternates: { canonical: "/indice-precos" },
   openGraph: {
     title: `Índice Nacional 2 — preços de carros usados em Portugal | ${SITE_NAME}`,
     description:
-      "Mediana de preços do mercado de usados português, por mês, combustível e marca — dados agregados de todos os portais.",
+      "Mediana de preços do mercado de usados português, por mês, combustível, ano e marca — dados agregados de todos os portais.",
   },
 };
+
+function StatTile({
+  label,
+  value,
+  hint,
+  accent,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  accent?: string;
+}) {
+  return (
+    <div className="n2-card relative overflow-hidden p-4">
+      <span
+        className="absolute inset-x-0 top-0 h-1"
+        style={{ background: accent ?? CHART.clay }}
+      />
+      <p className="text-[0.75rem] font-semibold uppercase tracking-wide text-n2muted">
+        {label}
+      </p>
+      <p className="font-head text-[1.5rem] font-extrabold leading-tight text-ink">
+        {value}
+      </p>
+      {hint && <p className="text-[0.76rem] text-n2muted2">{hint}</p>}
+    </div>
+  );
+}
 
 export default async function IndicePrecos() {
   const idx = await computeMarketIndex();
@@ -46,9 +82,11 @@ export default async function IndicePrecos() {
     ],
   };
 
-  const maxMedian = idx?.months.length
-    ? Math.max(...idx.months.map((m) => m.median))
-    : 0;
+  const sellAll = idx?.sellTimes.find((s) => s.seg === "Todos");
+  const dropPct =
+    idx?.drops && idx.activeCount > 0
+      ? Math.round((idx.drops.count / idx.activeCount) * 100)
+      : null;
 
   return (
     <div className="flex min-h-screen flex-col bg-cream">
@@ -66,10 +104,10 @@ export default async function IndicePrecos() {
           📈 Índice Nacional 2 de preços
         </h1>
         <p className="mt-1 max-w-3xl text-[0.95rem] text-n2muted">
-          Quanto custam os carros usados em Portugal, mês a mês — calculado a
-          partir do inventário agregado de todos os grandes portais (OLX,
-          Standvirtual, Pisca Pisca e Auto SAPO). Dados abertos: cita à vontade
-          com link para esta página.
+          Quanto custam os carros usados em Portugal — calculado a partir do
+          inventário agregado de todos os grandes portais (OLX, Standvirtual,
+          Pisca Pisca e Auto SAPO). Dados abertos: cita à vontade com link para
+          esta página.
         </p>
 
         {!idx ? (
@@ -80,158 +118,199 @@ export default async function IndicePrecos() {
         ) : (
           <>
             {/* headline */}
-            <section className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="n2-card p-4">
-                <p className="text-[0.78rem] font-semibold uppercase tracking-wide text-n2muted">
-                  Mediana atual
-                </p>
-                <p className="font-head text-[1.4rem] font-extrabold text-ink">
-                  {idx.currentMedian != null ? fmtEur(idx.currentMedian) : "—"}
-                </p>
-              </div>
-              <div className="n2-card p-4">
-                <p className="text-[0.78rem] font-semibold uppercase tracking-wide text-n2muted">
-                  Variação mensal
-                </p>
-                <p
-                  className={`font-head text-[1.4rem] font-extrabold ${
-                    idx.momPct == null
-                      ? "text-ink"
-                      : idx.momPct > 0
-                        ? "text-[#C6603B]"
-                        : "text-olive"
-                  }`}
-                >
-                  {idx.momPct == null
+            <section className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
+              <StatTile
+                label="Mediana atual"
+                value={
+                  idx.currentMedian != null ? fmtEur(idx.currentMedian) : "—"
+                }
+                accent={CHART.clay}
+              />
+              <StatTile
+                label="Variação mensal"
+                value={
+                  idx.momPct == null
                     ? "—"
-                    : `${idx.momPct > 0 ? "+" : ""}${idx.momPct.toLocaleString("pt-PT")}%`}
-                </p>
-              </div>
-              <div className="n2-card p-4">
-                <p className="text-[0.78rem] font-semibold uppercase tracking-wide text-n2muted">
-                  Anúncios ativos
-                </p>
-                <p className="font-head text-[1.4rem] font-extrabold text-ink">
-                  {idx.activeCount.toLocaleString("pt-PT")}
-                </p>
-              </div>
-              <div className="n2-card p-4">
-                <p className="text-[0.78rem] font-semibold uppercase tracking-wide text-n2muted">
-                  Fontes
-                </p>
-                <p className="font-head text-[1.4rem] font-extrabold text-ink">
-                  4 portais
-                </p>
-              </div>
+                    : `${idx.momPct > 0 ? "▲ +" : "▼ "}${idx.momPct.toLocaleString("pt-PT")}%`
+                }
+                hint="da mediana vs mês anterior"
+                accent={
+                  idx.momPct == null
+                    ? CHART.muted
+                    : idx.momPct > 0
+                      ? CHART.rust
+                      : CHART.green
+                }
+              />
+              <StatTile
+                label="Anúncios ativos"
+                value={idx.activeCount.toLocaleString("pt-PT")}
+                hint="em 4 portais, sem duplicados"
+                accent={CHART.blue}
+              />
+              <StatTile
+                label="Tempo até vender"
+                value={sellAll ? `${sellAll.medianDays} dias` : "—"}
+                hint="mediana até sair do portal"
+                accent={CHART.teal}
+              />
+              <StatTile
+                label="Com desconto"
+                value={dropPct != null ? `${dropPct}%` : "—"}
+                hint={
+                  idx.drops
+                    ? `descida mediana ${fmtEur(idx.drops.medianDrop)}`
+                    : "dos anúncios ativos"
+                }
+                accent={CHART.green}
+              />
             </section>
 
             {/* evolução mensal */}
             {idx.months.length >= 2 && (
               <section className="n2-card mt-6 p-5">
-                <h2 className="mb-4 font-head text-[1.3rem] font-extrabold text-ink">
+                <h2 className="font-head text-[1.3rem] font-extrabold text-ink">
                   Mediana de preço, mês a mês
                 </h2>
-                <div className="flex items-end gap-1.5 sm:gap-3">
-                  {idx.months.map((m) => (
-                    <div
-                      key={m.month}
-                      className="flex flex-1 flex-col items-center gap-1"
-                    >
-                      <span className="text-[0.7rem] font-bold text-ink sm:text-[0.78rem]">
-                        {Math.round(m.median / 100) / 10} k€
-                      </span>
-                      <div
-                        className="w-full rounded-t-lg bg-clay/80"
-                        style={{
-                          height: `${Math.max(12, (m.median / maxMedian) * 160)}px`,
-                        }}
-                        title={`${monthLabel(m.month)}: ${fmtEur(m.median)} (${m.n.toLocaleString("pt-PT")} anúncios)`}
-                      />
-                      <span className="text-[0.66rem] font-semibold text-n2muted sm:text-[0.74rem]">
-                        {monthLabel(m.month)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                <p className="mb-2 text-[0.85rem] text-n2muted">
+                  Um anúncio conta num mês se esteve visível nesse mês.
+                </p>
+                <TrendChart
+                  id="meses"
+                  color={CHART.clay}
+                  points={idx.months.map((m) => ({
+                    label: monthLabel(m.month),
+                    value: m.median,
+                    sub: `${m.n.toLocaleString("pt-PT")} anúncios`,
+                  }))}
+                />
               </section>
             )}
 
-            <div className="mt-6 grid gap-6 md:grid-cols-2">
-              {/* por combustível */}
+            <div className="mt-6 grid gap-6 lg:grid-cols-2">
+              {/* mix por combustível */}
               <section className="n2-card p-5">
-                <h2 className="mb-3 font-head text-[1.2rem] font-extrabold text-ink">
-                  Por combustível (anúncios ativos)
+                <h2 className="font-head text-[1.2rem] font-extrabold text-ink">
+                  O mercado por combustível
                 </h2>
-                <table className="w-full text-[0.92rem]">
-                  <thead>
-                    <tr className="text-left text-[0.76rem] uppercase tracking-wide text-n2muted">
-                      <th className="pb-2">Segmento</th>
-                      <th className="pb-2 text-right">Mediana</th>
-                      <th className="pb-2 text-right">Anúncios</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {idx.fuels.map((f) => (
-                      <tr key={f.seg} className="border-t border-outline">
-                        <td className="py-1.5 font-semibold text-ink">
-                          {f.seg}
-                        </td>
-                        <td className="py-1.5 text-right font-bold text-ink">
-                          {fmtEur(f.median)}
-                        </td>
-                        <td className="py-1.5 text-right text-n2muted">
-                          {f.n.toLocaleString("pt-PT")}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <p className="mb-3 text-[0.85rem] text-n2muted">
+                  Quota da oferta ativa e preço mediano de cada segmento.
+                </p>
+                <FuelDonut
+                  slices={idx.fuels.map((f) => ({
+                    label: f.seg,
+                    value: f.n,
+                    detail: fmtEur(f.median),
+                  }))}
+                  centerTop={idx.activeCount.toLocaleString("pt-PT")}
+                  centerBottom="anúncios ativos"
+                />
               </section>
 
-              {/* por marca */}
-              <section className="n2-card p-5">
-                <h2 className="mb-3 font-head text-[1.2rem] font-extrabold text-ink">
-                  Marcas com mais oferta
-                </h2>
-                <table className="w-full text-[0.92rem]">
-                  <thead>
-                    <tr className="text-left text-[0.76rem] uppercase tracking-wide text-n2muted">
-                      <th className="pb-2">Marca</th>
-                      <th className="pb-2 text-right">Mediana</th>
-                      <th className="pb-2 text-right">Anúncios</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {idx.brands.map((b) => (
-                      <tr key={b.brand} className="border-t border-outline">
-                        <td className="py-1.5 font-semibold text-ink">
-                          <Link
-                            href={`/carros?marca=${encodeURIComponent(b.brand)}`}
-                            className="underline-offset-2 hover:underline"
-                          >
-                            {b.brand}
-                          </Link>
-                        </td>
-                        <td className="py-1.5 text-right font-bold text-ink">
-                          {fmtEur(b.median)}
-                        </td>
-                        <td className="py-1.5 text-right text-n2muted">
-                          {b.n.toLocaleString("pt-PT")}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </section>
+              {/* desvalorização por ano */}
+              {idx.yearCurve.length >= 4 && (
+                <section className="n2-card p-5">
+                  <h2 className="font-head text-[1.2rem] font-extrabold text-ink">
+                    A curva da desvalorização
+                  </h2>
+                  <p className="mb-2 text-[0.85rem] text-n2muted">
+                    Preço mediano por ano do carro — quanto “perde” cada ano no
+                    mercado real.
+                  </p>
+                  <TrendChart
+                    id="anos"
+                    color={CHART.teal}
+                    height={230}
+                    points={idx.yearCurve.map((y) => ({
+                      label: String(y.year).slice(2),
+                      value: y.median,
+                      sub: `${y.n.toLocaleString("pt-PT")} anúncios de ${y.year}`,
+                    }))}
+                  />
+                </section>
+              )}
             </div>
+
+            <div className="mt-6 grid gap-6 lg:grid-cols-2">
+              {/* histograma por preço */}
+              <section className="n2-card p-5">
+                <h2 className="font-head text-[1.2rem] font-extrabold text-ink">
+                  Onde está a oferta
+                </h2>
+                <p className="mb-4 text-[0.85rem] text-n2muted">
+                  Nº de anúncios ativos por faixa de preço.
+                </p>
+                <ColumnChart bands={idx.priceBands} color={CHART.blue} />
+              </section>
+
+              {/* tempo até vender por combustível */}
+              {idx.sellTimes.length > 1 && (
+                <section className="n2-card p-5">
+                  <h2 className="font-head text-[1.2rem] font-extrabold text-ink">
+                    Quanto tempo demora a vender?
+                  </h2>
+                  <p className="mb-4 text-[0.85rem] text-n2muted">
+                    Dias (mediana) até um anúncio desaparecer do portal de
+                    origem — proxy de venda, últimos 60 dias.
+                  </p>
+                  <HBars
+                    rows={idx.sellTimes
+                      .filter((s) => s.seg !== "Todos")
+                      .map((s) => ({
+                        label: s.seg,
+                        value: s.medianDays,
+                        display: `${s.medianDays} dias`,
+                        sub: `${s.n.toLocaleString("pt-PT")} vendidos`,
+                        color: FUEL_COLOR[s.seg],
+                      }))}
+                  />
+                  {sellAll && (
+                    <p className="mt-3 border-t border-outline pt-2 text-[0.82rem] font-semibold text-n2muted">
+                      Mercado todo: {sellAll.medianDays} dias (
+                      {sellAll.n.toLocaleString("pt-PT")} anúncios que saíram)
+                    </p>
+                  )}
+                </section>
+              )}
+            </div>
+
+            {/* marcas */}
+            <section className="n2-card mt-6 p-5">
+              <h2 className="font-head text-[1.2rem] font-extrabold text-ink">
+                Marcas com mais oferta
+              </h2>
+              <p className="mb-4 text-[0.85rem] text-n2muted">
+                Nº de anúncios ativos; o valor à direita é o preço mediano da
+                marca.
+              </p>
+              <div className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
+                <HBars
+                  rows={idx.brands.slice(0, 6).map((b) => ({
+                    label: b.brand,
+                    value: b.n,
+                    display: fmtEur(b.median),
+                    sub: `${b.n.toLocaleString("pt-PT")} anúncios`,
+                  }))}
+                />
+                <HBars
+                  rows={idx.brands.slice(6, 12).map((b) => ({
+                    label: b.brand,
+                    value: b.n,
+                    display: fmtEur(b.median),
+                    sub: `${b.n.toLocaleString("pt-PT")} anúncios`,
+                  }))}
+                />
+              </div>
+            </section>
 
             <div className="n2-card mt-6 bg-[#FBF3DC] p-5 text-[0.88rem] text-n2muted">
               <b className="font-head text-ink">Metodologia.</b> Medianas
               calculadas sobre anúncios com preço entre 500 € e 300 000 €,
               excluindo duplicados entre portais e anúncios com dados
-              implausíveis. Um anúncio conta num mês se esteve visível nesse
-              mês. A mediana (e não a média) evita que meia dúzia de supercarros
-              distorça o valor. Podes citar estes dados com link para{" "}
+              implausíveis. A mediana (e não a média) evita que meia dúzia de
+              supercarros distorça o valor. “Tempo até vender” mede os dias
+              entre a primeira e a última vez que o anúncio foi visto no portal
+              de origem. Podes citar estes dados com link para{" "}
               <span className="font-semibold text-ink">
                 nacional-2.pt/indice-precos
               </span>
