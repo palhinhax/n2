@@ -23,6 +23,7 @@ export default function NewCarForm() {
     forSale: false,
     price: "",
     negotiable: true,
+    showPhone: false,
   });
   const [photos, setPhotos] = useState<any[]>([]);
   const [error, setError] = useState("");
@@ -254,6 +255,24 @@ export default function NewCarForm() {
               />
               Aceito ofertas
             </label>
+            <label className="flex cursor-pointer items-center gap-2 text-[0.92rem] font-semibold text-ink sm:col-span-2">
+              <input
+                type="checkbox"
+                checked={f.showPhone}
+                onChange={(e) => setF({ ...f, showPhone: e.target.checked })}
+                className="h-4 w-4 accent-clay"
+              />
+              Mostrar o meu telefone no anúncio
+            </label>
+            {f.showPhone && (
+              <p className="-mt-2 text-[0.8rem] text-n2muted sm:col-span-2">
+                Usa o telefone definido em{" "}
+                <a href="/conta" className="underline" target="_blank">
+                  A minha conta
+                </a>{" "}
+                — confirma que está preenchido.
+              </p>
+            )}
             <p className="text-[0.82rem] text-n2muted sm:col-span-2">
               O anúncio passa por validação da equipa antes de ficar visível.
             </p>

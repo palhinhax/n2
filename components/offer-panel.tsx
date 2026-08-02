@@ -35,7 +35,11 @@ export default function OfferPanel({
   if (state === "sent")
     return (
       <p className="font-semibold text-olive">
-        ✓ Oferta enviada! O vendedor vai ser notificado.
+        ✓ Oferta enviada! O vendedor foi notificado — acompanha o estado em{" "}
+        <a href="/propostas" className="underline underline-offset-2">
+          As minhas propostas
+        </a>
+        .
       </p>
     );
 

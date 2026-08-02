@@ -85,6 +85,18 @@ export default async function CarDetail({
   if (!(car.forSale && car.status === "APPROVED") && !isOwner && !isAdmin)
     notFound();
 
+  // se o visitante tem uma oferta aceite neste carro, revela o contacto do vendedor
+  const myAcceptedOffer =
+    session?.user && !isOwner
+      ? await prisma.offer.findFirst({
+          where: {
+            carId: car.id,
+            buyerId: session.user.id,
+            status: "ACCEPTED",
+          },
+        })
+      : null;
+
   const similar = await prisma.car.findMany({
     where: {
       id: { not: car.id },
@@ -336,6 +348,42 @@ export default async function CarDetail({
                   </small>
                 </div>
               </div>
+              {car.showPhone && car.owner.phone && (
+                <a
+                  href={`tel:${car.owner.phone}`}
+                  className="btn-ink mt-3 w-full justify-center text-center"
+                >
+                  📞 Ligar {car.owner.phone}
+                </a>
+              )}
+              {myAcceptedOffer && (
+                <div className="mt-3 rounded-xl bg-olive/10 px-3 py-2.5 text-[0.9rem]">
+                  <b className="block text-olive">
+                    ✓ A tua oferta de {fmtEur(myAcceptedOffer.amount)} foi
+                    aceite
+                  </b>
+                  <span className="font-semibold text-ink">
+                    Contacta {car.owner.name || "o vendedor"}:{" "}
+                    {car.owner.phone ? (
+                      <>
+                        <a
+                          href={`tel:${car.owner.phone}`}
+                          className="underline underline-offset-2"
+                        >
+                          📞 {car.owner.phone}
+                        </a>{" "}
+                        ·{" "}
+                      </>
+                    ) : null}
+                    <a
+                      href={`mailto:${car.owner.email}`}
+                      className="underline underline-offset-2"
+                    >
+                      ✉ {car.owner.email}
+                    </a>
+                  </span>
+                </div>
+              )}
               {car.status === "APPROVED" && (
                 <div className="mt-3 border-t border-outline pt-3">
                   <span className="inline-flex items-center gap-1 text-[0.76rem] font-semibold text-olive">

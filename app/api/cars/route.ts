@@ -45,6 +45,7 @@ export async function POST(req: Request) {
       forSale,
       price: forSale ? +b.price : null,
       negotiable: b.negotiable !== false,
+      showPhone: !!b.showPhone,
       status: forSale ? "PENDING" : "GARAGE",
       photos: b.photos?.length
         ? {

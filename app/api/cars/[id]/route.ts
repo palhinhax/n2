@@ -42,6 +42,7 @@ export async function PATCH(
     if (b[k] !== undefined) data[k] = b[k] || null;
   }
   if (b.negotiable !== undefined) data.negotiable = !!b.negotiable;
+  if (b.showPhone !== undefined) data.showPhone = !!b.showPhone;
 
   // marca/modelo
   if (b.brandId !== undefined) data.brandId = +b.brandId;

@@ -1,9 +1,10 @@
 import Link from "next/link";
 import Image from "next/image";
-import { auth, signOut } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { priceAlertCount, savedSearchAlertCount } from "@/lib/favorites";
 import { unreadNotificationCount } from "@/lib/notifications";
 import MobileNav from "@/components/mobile-nav";
+import NavDropdown from "@/components/nav-dropdown";
 import HeaderSearch from "@/components/header-search";
 
 export default async function SiteHeader() {
@@ -21,6 +22,7 @@ export default async function SiteHeader() {
     ...(user
       ? [
           { href: "/garagem", label: "A minha garagem" },
+          { href: "/propostas", label: "As minhas propostas" },
           { href: "/favoritos", label: "Favoritos", badge: alerts },
           { href: "/pesquisas", label: "Pesquisas", badge: searchAlerts },
           { href: "/notificacoes", label: "Notificações", badge: unread },
@@ -51,69 +53,30 @@ export default async function SiteHeader() {
               NACIONAL 2
             </span>
           </Link>
-          <nav className="hidden flex-1 gap-1 md:flex">
+          <nav className="hidden flex-1 items-center gap-1 md:flex">
             <Link
               href="/carros"
-              className="rounded-full px-3 py-1.5 text-[0.95rem] font-semibold text-n2muted hover:bg-cream hover:text-ink"
+              className="whitespace-nowrap rounded-full px-3 py-1.5 text-[0.95rem] font-semibold text-n2muted hover:bg-cream hover:text-ink"
             >
               Carros
             </Link>
             <Link
               href="/eletricos"
-              className="rounded-full px-3 py-1.5 text-[0.95rem] font-semibold text-n2muted hover:bg-cream hover:text-ink"
+              className="whitespace-nowrap rounded-full px-3 py-1.5 text-[0.95rem] font-semibold text-n2muted hover:bg-cream hover:text-ink"
             >
               Elétricos
             </Link>
-            <Link
-              href="/avaliar"
-              className="rounded-full px-3 py-1.5 text-[0.95rem] font-semibold text-n2muted hover:bg-cream hover:text-ink"
-            >
-              Avaliar carro
-            </Link>
-            <Link
-              href="/calcular-isv"
-              className="rounded-full px-3 py-1.5 text-[0.95rem] font-semibold text-n2muted hover:bg-cream hover:text-ink"
-            >
-              Calcular ISV
-            </Link>
-            {user && (
-              <Link
-                href="/garagem"
-                className="rounded-full px-3 py-1.5 text-[0.95rem] font-semibold text-n2muted hover:bg-cream hover:text-ink"
-              >
-                A minha garagem
-              </Link>
-            )}
-            {user && (
-              <Link
-                href="/favoritos"
-                className="relative rounded-full px-3 py-1.5 text-[0.95rem] font-semibold text-n2muted hover:bg-cream hover:text-ink"
-              >
-                Favoritos
-                {alerts > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-clay px-1 text-[0.65rem] font-bold text-white">
-                    {alerts}
-                  </span>
-                )}
-              </Link>
-            )}
-            {user && (
-              <Link
-                href="/pesquisas"
-                className="relative rounded-full px-3 py-1.5 text-[0.95rem] font-semibold text-n2muted hover:bg-cream hover:text-ink"
-              >
-                Pesquisas
-                {searchAlerts > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-olive px-1 text-[0.65rem] font-bold text-white">
-                    {searchAlerts}
-                  </span>
-                )}
-              </Link>
-            )}
+            <NavDropdown
+              label="Ferramentas"
+              items={[
+                { href: "/avaliar", label: "Avaliar carro" },
+                { href: "/calcular-isv", label: "Calcular ISV" },
+              ]}
+            />
             {user?.role === "ADMIN" && (
               <Link
                 href="/admin"
-                className="rounded-full px-3 py-1.5 text-[0.95rem] font-semibold text-olive hover:bg-cream"
+                className="whitespace-nowrap rounded-full px-3 py-1.5 text-[0.95rem] font-semibold text-olive hover:bg-cream"
               >
                 Admin
               </Link>
@@ -135,23 +98,25 @@ export default async function SiteHeader() {
               </Link>
             )}
             {user ? (
-              <>
-                <Link
-                  href="/conta"
-                  className="hidden text-[0.88rem] font-semibold text-n2muted hover:text-ink sm:block"
-                >
-                  Olá, {user.name?.split(" ")[0]}
-                </Link>
-                <form
-                  className="hidden md:block"
-                  action={async () => {
-                    "use server";
-                    await signOut({ redirectTo: "/" });
-                  }}
-                >
-                  <button className="btn-line btn-xs">Sair</button>
-                </form>
-              </>
+              <div className="hidden md:block">
+                <NavDropdown
+                  label={`Olá, ${user.name?.split(" ")[0] ?? "eu"}`}
+                  align="right"
+                  badge={alerts + searchAlerts}
+                  withSignOut
+                  items={[
+                    { href: "/garagem", label: "A minha garagem" },
+                    { href: "/propostas", label: "As minhas propostas" },
+                    { href: "/favoritos", label: "Favoritos", badge: alerts },
+                    {
+                      href: "/pesquisas",
+                      label: "Pesquisas",
+                      badge: searchAlerts,
+                    },
+                    { href: "/conta", label: "A minha conta" },
+                  ]}
+                />
+              </div>
             ) : (
               <Link
                 href="/auth/login"

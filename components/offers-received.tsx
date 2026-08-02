@@ -45,6 +45,28 @@ export default function OffersReceived({ offers }: { offers: any[] }) {
             {o.message && (
               <p className="mt-1 text-[0.85rem] text-n2muted">“{o.message}”</p>
             )}
+            {o.status === "ACCEPTED" && (
+              <p className="mt-1 text-[0.85rem] font-semibold text-olive">
+                Contacta {o.buyer.name || "o comprador"}:{" "}
+                {o.buyer.phone ? (
+                  <>
+                    <a
+                      href={`tel:${o.buyer.phone}`}
+                      className="underline underline-offset-2"
+                    >
+                      📞 {o.buyer.phone}
+                    </a>{" "}
+                    ·{" "}
+                  </>
+                ) : null}
+                <a
+                  href={`mailto:${o.buyer.email}`}
+                  className="underline underline-offset-2"
+                >
+                  ✉ {o.buyer.email}
+                </a>
+              </p>
+            )}
             {o.status === "PENDING" && (
               <div className="mt-2 flex gap-2">
                 <button

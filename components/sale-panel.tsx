@@ -7,6 +7,7 @@ export default function SalePanel({ car }: { car: any }) {
   const [forSale, setForSale] = useState(car.forSale);
   const [price, setPrice] = useState(car.price || "");
   const [negotiable, setNegotiable] = useState(car.negotiable);
+  const [showPhone, setShowPhone] = useState(!!car.showPhone);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
@@ -28,6 +29,7 @@ export default function SalePanel({ car }: { car: any }) {
         forSale: nextForSale,
         price: +price || null,
         negotiable,
+        showPhone,
       }),
     });
     const j = await res.json();
@@ -42,6 +44,20 @@ export default function SalePanel({ car }: { car: any }) {
         ? "✓ Enviado para validação — fica online assim que for aprovado."
         : "✓ Retirado de venda. Continua na tua garagem."
     );
+    router.refresh();
+  }
+
+  // grava negociação/contacto sem mexer no estado de venda (não volta à moderação)
+  async function saveSettings() {
+    setBusy(true);
+    setMsg("");
+    const res = await fetch(`/api/cars/${car.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ negotiable, showPhone }),
+    });
+    setBusy(false);
+    setMsg(res.ok ? "✓ Guardado." : "Erro ao guardar.");
     router.refresh();
   }
 
@@ -78,14 +94,41 @@ export default function SalePanel({ car }: { car: any }) {
           />
           Aceito ofertas / negociação
         </label>
+        <label className="flex cursor-pointer items-center gap-2 text-[0.92rem] font-semibold text-ink">
+          <input
+            type="checkbox"
+            checked={showPhone}
+            onChange={(e) => setShowPhone(e.target.checked)}
+            className="h-4 w-4 accent-clay"
+          />
+          Mostrar o meu telefone no anúncio
+        </label>
+        {showPhone && (
+          <p className="-mt-1 text-[0.8rem] text-n2muted">
+            Usa o telefone definido em{" "}
+            <a href="/conta" className="underline" target="_blank">
+              A minha conta
+            </a>
+            .
+          </p>
+        )}
         {forSale ? (
-          <button
-            className="btn-line"
-            disabled={busy}
-            onClick={() => save(false)}
-          >
-            Retirar de venda
-          </button>
+          <>
+            <button
+              className="btn-ink btn-sm"
+              disabled={busy}
+              onClick={saveSettings}
+            >
+              Guardar alterações
+            </button>
+            <button
+              className="btn-line"
+              disabled={busy}
+              onClick={() => save(false)}
+            >
+              Retirar de venda
+            </button>
+          </>
         ) : (
           <button
             className="btn-clay"

@@ -132,6 +132,7 @@ model Car {
   forSale    Boolean @default(false)
   price      Int?
   negotiable Boolean @default(true)
+  showPhone  Boolean @default(false) // mostrar o telefone do vendedor no anúncio público
   status     String  @default("GARAGE") // GARAGE | PENDING | APPROVED | REJECTED
 
   // destaque editorial — só o admin liga/desliga (não é destaque pago).

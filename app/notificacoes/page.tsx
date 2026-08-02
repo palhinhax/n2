@@ -10,6 +10,9 @@ export const dynamic = "force-dynamic";
 const KIND_ICON: Record<string, string> = {
   PRICE_DROP: "▼",
   NEW_MATCHES: "🔔",
+  OFFER_RECEIVED: "💶",
+  OFFER_ACCEPTED: "🤝",
+  OFFER_REJECTED: "✕",
 };
 
 export default async function Notificacoes() {
@@ -36,7 +39,8 @@ export default async function Notificacoes() {
           🔔 Notificações
         </h1>
         <p className="mb-5 text-n2muted">
-          Descidas de preço nos favoritos e carros novos nas tuas pesquisas.
+          Ofertas nos teus anúncios, descidas de preço nos favoritos e carros
+          novos nas tuas pesquisas.
         </p>
 
         {notifications.length === 0 ? (

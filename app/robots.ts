@@ -10,6 +10,9 @@ export default function robots(): MetadataRoute.Robots {
     "/conta",
     "/garagem",
     "/favoritos",
+    "/propostas",
+    "/pesquisas",
+    "/notificacoes",
     "/dashboard",
   ];
   return {

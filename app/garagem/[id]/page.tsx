@@ -139,6 +139,7 @@ export default async function ManageCar({
                 forSale: car.forSale,
                 price: car.price,
                 negotiable: car.negotiable,
+                showPhone: car.showPhone,
               }}
             />
             <OffersReceived offers={car.offers} />

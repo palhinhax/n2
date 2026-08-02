@@ -1,8 +1,13 @@
 import { prisma } from "@/lib/prisma";
 
-// Notificações in-app (alertas inteligentes).
+// Notificações in-app (alertas inteligentes + fluxo de ofertas).
 
-export type NotificationKind = "PRICE_DROP" | "NEW_MATCHES";
+export type NotificationKind =
+  | "PRICE_DROP"
+  | "NEW_MATCHES"
+  | "OFFER_RECEIVED"
+  | "OFFER_ACCEPTED"
+  | "OFFER_REJECTED";
 
 export async function createNotification(opts: {
   userId: string;
