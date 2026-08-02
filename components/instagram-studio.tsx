@@ -17,7 +17,6 @@ export default function InstagramStudio({
   title,
   fields,
   defaultCaption,
-  defaultBadge,
   hasPhoto,
   apiEnabled,
 }: {
@@ -26,14 +25,12 @@ export default function InstagramStudio({
   title: string;
   fields: Fields;
   defaultCaption: string;
-  defaultBadge: string;
   hasPhoto: boolean;
   apiEnabled: boolean;
 }) {
   const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [caption, setCaption] = useState(defaultCaption);
-  const [badge, setBadge] = useState(defaultBadge);
   const [drawing, setDrawing] = useState(true);
   const [photoOk, setPhotoOk] = useState(true);
   const [busy, setBusy] = useState<null | "ai" | "download" | "publish">(null);
@@ -48,16 +45,16 @@ export default function InstagramStudio({
     setDrawing(true);
     const ok = await drawInstagramPost(canvas, {
       ...fields,
-      badge,
+      badge: "",
       photoUrl: hasPhoto
         ? `/api/admin/instagram/photo?kind=${kind}&id=${id}`
         : null,
     });
     setPhotoOk(!hasPhoto || ok);
     setDrawing(false);
-  }, [fields, badge, hasPhoto, kind, id]);
+  }, [fields, hasPhoto, kind, id]);
 
-  // redesenha quando muda o anúncio ou o selo (com um respiro para não
+  // redesenha quando muda o anúncio (com um respiro para não
   // redesenhar a cada tecla)
   useEffect(() => {
     const t = setTimeout(redraw, 250);
@@ -72,7 +69,7 @@ export default function InstagramStudio({
 
   useEffect(() => {
     setPublishArmed(false);
-  }, [kind, id, caption, badge]);
+  }, [kind, id, caption]);
 
   async function generateCaption() {
     setBusy("ai");
@@ -204,16 +201,6 @@ export default function InstagramStudio({
             {title}
           </h2>
         </div>
-
-        <label className="text-[0.85rem] font-semibold text-ink">
-          Selo na imagem
-          <input
-            value={badge}
-            onChange={(e) => setBadge(e.target.value)}
-            maxLength={40}
-            className="finput mt-1"
-          />
-        </label>
 
         <label className="text-[0.85rem] font-semibold text-ink">
           Legenda
