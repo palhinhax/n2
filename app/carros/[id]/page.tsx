@@ -241,6 +241,7 @@ export default async function CarDetail({
                 <PhotoGallery
                   photos={car.photos.map((p) => p.url)}
                   title={`${car.brand.name} ${car.model.name}`}
+                  admin={isAdmin ? { kind: "car", id: car.id } : undefined}
                 />
               ) : (
                 <div className="n2-card overflow-hidden bg-gradient-to-b from-[#FCF4E2] to-[#F4E2BC] p-10">

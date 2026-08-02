@@ -5,6 +5,7 @@ import { dedupeKeyFor } from "./dedupe";
 import { normalizeVehicle } from "../../lib/vehicle-normalize";
 import { assessListingQuality } from "../../lib/listing-quality";
 import { getSuspiciousKeywords } from "../../lib/suspicious-keywords";
+import { parseImageUrls, withoutBlocked } from "../../lib/listing-images";
 import { isBackupListingSource, primarySourceForBackup } from "./types";
 
 export async function upsertListing(
@@ -84,6 +85,7 @@ export async function upsertListing(
     price: true,
     description: true,
     imageUrls: true,
+    blockedImages: true,
     origin: true,
     hiddenByAdmin: true,
     keywordExempt: true,
@@ -137,15 +139,16 @@ export async function upsertListing(
       data.description = l.description;
     }
 
+    // fotos apagadas por um admin nunca voltam
+    const keptImgs = withoutBlocked(incomingImgs, existing.blockedImages);
+    if (keptImgs.length !== incomingImgs.length) {
+      data.imageUrls = JSON.stringify(keptImgs);
+    }
+
     // nunca substituir uma galeria por menos fotos — o cartão da listagem
     // traz 0–1 fotos e apagava a galeria completa do enriquecimento
-    let existingImgCount = 0;
-    try {
-      existingImgCount = JSON.parse(existing.imageUrls || "[]").length;
-    } catch {
-      existingImgCount = 0;
-    }
-    if (incomingImgs.length < existingImgCount) delete data.imageUrls;
+    const existingImgCount = parseImageUrls(existing.imageUrls).length;
+    if (keptImgs.length < existingImgCount) delete data.imageUrls;
 
     const newPrice = l.price ?? null;
     if (

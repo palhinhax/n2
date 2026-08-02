@@ -250,6 +250,9 @@ model ScrapedListing {
   sellerType   String? // Particular | Profissional
   sellerName   String?
   imageUrls    String   @default("[]") // JSON array de URLs (hotlink CDN de origem)
+  // fotos apagadas por um admin (JSON array de URLs). O scraper e o
+  // enriquecimento filtram-nas, senão voltavam no ciclo seguinte.
+  blockedImages String  @default("[]")
   active       Boolean  @default(true) // false = deixou de aparecer no site
   origin       String   @default("scraper") // scraper (nosso) | api (backup externo)
   firstSeenAt  DateTime @default(now())

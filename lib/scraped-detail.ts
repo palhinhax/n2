@@ -5,6 +5,7 @@ import { fetchDetailFromCarrosApi } from "../scripts/scraper/sites/carros-api";
 import { isBackupListingSource } from "../scripts/scraper/types";
 import { assessListingQuality } from "@/lib/listing-quality";
 import { getSuspiciousKeywords } from "@/lib/suspicious-keywords";
+import { parseImageUrls, withoutBlocked } from "@/lib/listing-images";
 
 // re-enriquecer se os detalhes tiverem mais de N dias
 const STALE_DAYS = 7;
@@ -24,6 +25,7 @@ export async function ensureListingDetail(listing: {
   url: string;
   detailsFetchedAt: Date | null;
   imageUrls: string;
+  blockedImages?: string;
   gearbox?: string | null;
   power?: number | null;
   displacement?: number | null;
@@ -82,15 +84,12 @@ export async function ensureListingDetail(listing: {
   }
   if (!detail) return null;
 
-  // junta as fotos da galeria completa às que já tínhamos, sem duplicar
-  let existingImgs: string[] = [];
-  try {
-    existingImgs = JSON.parse(listing.imageUrls || "[]");
-  } catch {
-    existingImgs = [];
-  }
-  const mergedImgs = Array.from(
-    new Set([...(detail.imageUrls ?? []), ...existingImgs])
+  // junta as fotos da galeria completa às que já tínhamos, sem duplicar e sem
+  // ressuscitar as que um admin apagou
+  const existingImgs = parseImageUrls(listing.imageUrls);
+  const mergedImgs = withoutBlocked(
+    Array.from(new Set([...(detail.imageUrls ?? []), ...existingImgs])),
+    listing.blockedImages
   );
 
   // com os detalhes completos, reavalia a qualidade: um falso positivo de
@@ -136,9 +135,9 @@ export async function ensureListingDetail(listing: {
       location: listing.location ?? detail.location ?? undefined,
       sellerType: listing.sellerType ?? detail.sellerType ?? undefined,
       sellerName: listing.sellerName ?? detail.sellerName ?? undefined,
-      imageUrls: mergedImgs.length
-        ? JSON.stringify(mergedImgs)
-        : listing.imageUrls,
+      // mergedImgs é sempre um superconjunto do que tínhamos (menos as fotos
+      // vetadas pelo admin), por isso nunca perde galeria
+      imageUrls: JSON.stringify(mergedImgs),
       suspicious: quality.suspicious,
       suspiciousReasons: JSON.stringify(quality.reasons),
       detailsFetchedAt: new Date(),

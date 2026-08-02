@@ -1,17 +1,70 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
+/** Passar quando o utilizador é admin: mostra um ✕ para apagar cada foto. */
+export type GalleryAdmin = { kind: "car" | "scraped"; id: string };
 
 // Galeria com lightbox, usada tanto pelos anúncios do site como pelos externos.
 export default function PhotoGallery({
   photos,
   title,
+  admin,
 }: {
   photos: string[];
   title: string;
+  admin?: GalleryAdmin;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [idx, setIdx] = useState(0);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function remove(url: string) {
+    if (!admin) return;
+    if (!confirm("Apagar esta foto do anúncio?")) return;
+    setErr(null);
+    setBusy(url);
+    const res = await fetch("/api/admin/photos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind: admin.kind, id: admin.id, url }),
+    }).catch(() => null);
+    setBusy(null);
+    if (!res || !res.ok) {
+      const j = res ? await res.json().catch(() => ({})) : {};
+      setErr((j as any).error || "Não foi possível apagar a foto.");
+      return;
+    }
+    setOpen(false);
+    setIdx(0);
+    router.refresh();
+  }
+
+  /** ✕ de admin sobreposto a uma foto. */
+  function DeleteBadge({ url, big }: { url: string; big?: boolean }) {
+    if (!admin) return null;
+    return (
+      <button
+        type="button"
+        title="Apagar esta foto"
+        aria-label="Apagar esta foto"
+        disabled={busy === url}
+        onClick={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          remove(url);
+        }}
+        className={`absolute left-1 top-1 z-10 flex items-center justify-center rounded-full border border-outline2 bg-white/90 font-bold text-red-800 shadow hover:bg-white disabled:opacity-50 ${
+          big ? "h-8 w-8 text-[1rem]" : "h-6 w-6 text-[0.75rem]"
+        }`}
+      >
+        {busy === url ? "…" : "✕"}
+      </button>
+    );
+  }
 
   const show = (i: number) => {
     setIdx(i);
@@ -47,44 +100,54 @@ export default function PhotoGallery({
     <>
       <div className="n2-card overflow-hidden">
         {/* foto principal */}
-        <button
-          type="button"
-          onClick={() => show(0)}
-          className="relative block w-full"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={photos[0]}
-            alt={title}
-            className="aspect-[16/10] w-full object-cover"
-            referrerPolicy="no-referrer"
-          />
-          <span className="absolute bottom-2 right-2 rounded-full bg-ink/70 px-2.5 py-0.5 text-[0.75rem] font-semibold text-white">
-            📷 {photos.length} fotos
-          </span>
-        </button>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => show(0)}
+            className="relative block w-full"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={photos[0]}
+              alt={title}
+              className="aspect-[16/10] w-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+            <span className="absolute bottom-2 right-2 rounded-full bg-ink/70 px-2.5 py-0.5 text-[0.75rem] font-semibold text-white">
+              📷 {photos.length} fotos
+            </span>
+          </button>
+          <DeleteBadge url={photos[0]} big />
+        </div>
 
         {/* miniaturas — todas */}
         {photos.length > 1 && (
           <div className="grid grid-cols-4 gap-1 p-1 sm:grid-cols-5">
             {photos.slice(1).map((p, i) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => show(i + 1)}
-                className="overflow-hidden rounded"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={p}
-                  alt=""
-                  className="aspect-[4/3] w-full object-cover transition hover:opacity-80"
-                  loading="lazy"
-                  referrerPolicy="no-referrer"
-                />
-              </button>
+              <div key={p} className="relative">
+                <button
+                  type="button"
+                  onClick={() => show(i + 1)}
+                  className="block w-full overflow-hidden rounded"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={p}
+                    alt=""
+                    className="aspect-[4/3] w-full object-cover transition hover:opacity-80"
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                  />
+                </button>
+                <DeleteBadge url={p} />
+              </div>
             ))}
           </div>
+        )}
+        {err && (
+          <p className="px-3 pb-2 text-[0.8rem] font-semibold text-red-800">
+            {err}
+          </p>
         )}
       </div>
 
@@ -102,6 +165,20 @@ export default function PhotoGallery({
           >
             ×
           </button>
+
+          {admin && (
+            <button
+              type="button"
+              disabled={busy === photos[idx]}
+              onClick={(e) => {
+                e.stopPropagation();
+                remove(photos[idx]);
+              }}
+              className="absolute left-4 top-4 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-[0.85rem] font-semibold text-white hover:bg-white/20 disabled:opacity-50"
+            >
+              {busy === photos[idx] ? "A apagar…" : "✕ Apagar esta foto"}
+            </button>
+          )}
 
           {photos.length > 1 && (
             <button

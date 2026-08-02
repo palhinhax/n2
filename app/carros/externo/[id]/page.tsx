@@ -11,6 +11,8 @@ import { fmtEur } from "@/lib/constants";
 import { SOURCE_LABEL } from "@/components/external-car-card";
 import { MIN_LISTING_PRICE } from "@/lib/car-listing";
 import PhotoGallery from "@/components/photo-gallery";
+import AdminBlockedPhotos from "@/components/admin-blocked-photos";
+import { parseImageUrls, withoutBlocked } from "@/lib/listing-images";
 import FavoriteButton from "@/components/favorite-button";
 import TrackView from "@/components/track-view";
 import type { Metadata } from "next";
@@ -61,12 +63,7 @@ export async function generateMetadata({
     `${l.title}${l.year ? `, ${l.year}` : ""}${l.km != null ? `, ${l.km.toLocaleString("pt-PT")} km` : ""}` +
       `${l.fuel ? `, ${l.fuel}` : ""}. ${eur(l.price)}. Vê no ${SITE_NAME}.`
   );
-  let image: string | undefined;
-  try {
-    image = JSON.parse(l.imageUrls || "[]")[0];
-  } catch {
-    image = undefined;
-  }
+  const image = withoutBlocked(parseImageUrls(l.imageUrls), l.blockedImages)[0];
   const url = absolute(`/carros/externo/${l.id}`);
   return {
     title,
@@ -122,12 +119,12 @@ export default async function ExternalCarDetail({
     // se a origem falhar, mostramos o que temos
   }
 
-  let photos: string[] = [];
-  try {
-    photos = JSON.parse(listing.imageUrls || "[]");
-  } catch {
-    photos = [];
-  }
+  // fotos vetadas por um admin nunca aparecem (nem no JSON-LD/OG)
+  const blockedPhotos = parseImageUrls(listing.blockedImages);
+  const photos = withoutBlocked(
+    parseImageUrls(listing.imageUrls),
+    listing.blockedImages
+  );
 
   // rede de segurança: esconde descrições que sejam despejos de navegação/legal
   // (anúncios OLX antigos guardados antes da correção do parser)
@@ -368,7 +365,18 @@ export default async function ExternalCarDetail({
 
         <div className="grid items-start gap-5 lg:grid-cols-[1.4fr_1fr]">
           <div className="flex flex-col gap-5">
-            <PhotoGallery photos={photos} title={listing.title} />
+            <div>
+              <PhotoGallery
+                photos={photos}
+                title={listing.title}
+                admin={
+                  isAdmin ? { kind: "scraped", id: listing.id } : undefined
+                }
+              />
+              {isAdmin && (
+                <AdminBlockedPhotos id={listing.id} photos={blockedPhotos} />
+              )}
+            </div>
 
             {cleanDescription && (
               <div className="n2-card p-5">
