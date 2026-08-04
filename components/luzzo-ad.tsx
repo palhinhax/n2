@@ -21,12 +21,17 @@ const SIZES = {
   },
 } as const;
 
+const DEFAULT_TEMA = "automovel-e-2-rodas";
+
 export function LuzzoAd({
   variant = "faixa",
+  tema = DEFAULT_TEMA,
 }: {
   variant?: keyof typeof SIZES;
+  tema?: string;
 }) {
   const { src, width, height } = SIZES[variant];
+  const embedSrc = tema ? `${src}?tema=${encodeURIComponent(tema)}` : src;
   // o retângulo ocupa a célula da grelha por inteiro — mesma largura e mesma
   // altura dos cards de carros ao lado. O embed é fluido, adapta-se ao
   // tamanho do iframe. As barras são banners de altura fixa.
@@ -34,7 +39,7 @@ export function LuzzoAd({
 
   return (
     <iframe
-      src={src}
+      src={embedSrc}
       title="Luzzo"
       loading="lazy"
       scrolling="no"
